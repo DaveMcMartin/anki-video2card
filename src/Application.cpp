@@ -8,8 +8,6 @@
 #include <imgui_stdlib.h>
 
 #include <chrono>
-#include <filesystem>
-#include <format>
 #include <iostream>
 #include <thread>
 
@@ -20,6 +18,7 @@
 #include "config/ConfigManager.h"
 #include "core/Logger.h"
 #include "core/sdl/SDLWrappers.h"
+#include "utils/FileUtils.h"
 #include "language/ILanguage.h"
 #include "language/JapaneseLanguage.h"
 #include "ui/AnkiCardSettingsSection.h"
@@ -186,7 +185,7 @@ namespace Video2Card
     std::string iconFontPath = m_BasePath + "assets/fa-solid-900.ttf";
     io.Fonts->AddFontFromFileTTF(iconFontPath.c_str(), iconFontSize, &icons_config, icons_ranges);
 
-    m_ConfigManager = std::make_unique<Config::ConfigManager>();
+    m_ConfigManager = std::make_unique<Config::ConfigManager>(Utils::FileUtils::GetConfigPath());
 
     // Initialize language system
     m_Languages.push_back(std::make_unique<Language::JapaneseLanguage>());
@@ -485,6 +484,7 @@ namespace Video2Card
       m_OpenExtractModal = false;
     }
 
+    ImGui::SetNextWindowSizeConstraints(ImVec2(500, 0), ImVec2(FLT_MAX, FLT_MAX));
     if (ImGui::BeginPopupModal("Extract Result", &m_ShowExtractModal, ImGuiWindowFlags_AlwaysAutoResize)) {
       auto InputText = [](const char* label, std::string* str) {
         auto callback = [](ImGuiInputTextCallbackData* data) {
@@ -510,8 +510,9 @@ namespace Video2Card
           }
           return 0;
         };
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         return ImGui::InputTextMultiline(
-            label, (char*) str->data(), str->capacity() + 1, ImVec2(0, 60), ImGuiInputTextFlags_CallbackResize, callback, (void*) str);
+            label, (char*) str->data(), str->capacity() + 1, ImVec2(-1, 120), ImGuiInputTextFlags_CallbackResize, callback, (void*) str);
       };
 
       InputTextMultiline("Sentence", &m_ExtractSentence);
