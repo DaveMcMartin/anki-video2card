@@ -2,6 +2,7 @@
 #include "config/ConfigManager.h"
 #include "core/Logger.h"
 #include "language/ILanguage.h"
+#include "utils/VideoState.h"
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -108,20 +109,34 @@ namespace Video2Card::UI
 
     AF_INFO("Loading video file: {}", path);
     m_CurrentVideoPath = path;
+    m_FileLoadedSuccessfully = false;
+    m_PendingSeekPosition = -1.0;
+
+    uint64_t savedPosition = Utils::VideoState::LoadPlaybackPosition(path);
+    if (savedPosition > 0) {
+      m_PendingSeekPosition = savedPosition / 1000.0;
+      AF_DEBUG("Deferred seek position set to: {} seconds", m_PendingSeekPosition);
+    }
+
     const char* cmd[] = {"loadfile", path.c_str(), nullptr};
     int res = mpv_command_async(m_mpv, 0, cmd);
     if (res < 0) {
-        AF_ERROR("Failed to send loadfile command: {}", mpv_error_string(res));
+      AF_ERROR("Failed to send loadfile command: {}", mpv_error_string(res));
     }
 
-    // Reset state
     m_IsPlaying = true;
     int pause = 0;
     mpv_set_property_async(m_mpv, 0, "pause", MPV_FORMAT_FLAG, &pause);
+    m_LastSaveTime = 0.0;
   }
 
   void VideoSection::ClearVideo()
   {
+    if (!m_CurrentVideoPath.empty() && m_CurrentTime > 0) {
+      uint64_t positionMs = static_cast<uint64_t>(m_CurrentTime * 1000);
+      Utils::VideoState::SavePlaybackPosition(m_CurrentVideoPath, positionMs);
+      AF_DEBUG("Saved playback position: {} ms", positionMs);
+    }
     m_ShouldClearVideo = true;
   }
 
@@ -149,6 +164,15 @@ namespace Video2Card::UI
 
     HandleMPVEvents();
     UpdateVideoTexture();
+
+    // Periodically save playback position to avoid excessive disk writes
+    if (!m_CurrentVideoPath.empty() && m_CurrentTime > 0) {
+      if (m_CurrentTime - m_LastSaveTime >= SAVE_INTERVAL) {
+        uint64_t positionMs = static_cast<uint64_t>(m_CurrentTime * 1000);
+        Utils::VideoState::SavePlaybackPosition(m_CurrentVideoPath, positionMs);
+        m_LastSaveTime = m_CurrentTime;
+      }
+    }
   }
 
   void VideoSection::HandleMPVEvents()
@@ -159,7 +183,15 @@ namespace Video2Card::UI
       mpv_event* event = mpv_wait_event(m_mpv, 0);
       if (event->event_id == MPV_EVENT_NONE) break;
 
-      if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+      if (event->event_id == MPV_EVENT_FILE_LOADED) {
+        m_FileLoadedSuccessfully = true;
+        AF_DEBUG("File loaded event received");
+        if (m_PendingSeekPosition >= 0.0) {
+          AF_INFO("Performing deferred seek to {} seconds", m_PendingSeekPosition);
+          mpv_set_property_async(m_mpv, 0, "time-pos", MPV_FORMAT_DOUBLE, &m_PendingSeekPosition);
+          m_PendingSeekPosition = -1.0;
+        }
+      } else if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
         mpv_event_property* prop = (mpv_event_property*)event->data;
         if (prop->data == nullptr) continue;
 

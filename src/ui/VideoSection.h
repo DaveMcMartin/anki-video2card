@@ -11,6 +11,7 @@
 #include <mutex>
 
 #include "ui/UIComponent.h"
+#include "utils/VideoState.h"
 
 struct SDL_Texture;
 struct SDL_Renderer;
@@ -92,6 +93,11 @@ namespace Video2Card::UI
     std::vector<uint8_t> m_FrameBuffer;
 
     bool m_ShouldClearVideo = false;
+    double m_LastSaveTime = 0.0;
+    static constexpr double SAVE_INTERVAL = 1.0;
+    
+    double m_PendingSeekPosition = -1.0;
+    bool m_FileLoadedSuccessfully = false;
   };
 
 } // namespace Video2Card::UI
