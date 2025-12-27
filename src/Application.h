@@ -25,14 +25,19 @@ namespace Video2Card::API
   class AnkiConnectClient;
 }
 
-namespace Video2Card::AI
+namespace Video2Card::Language::Services
 {
-  class ITextAIProvider;
-} // namespace Video2Card::AI
+  class ILanguageService;
+}
 
 namespace Video2Card::Language
 {
   class ILanguage;
+}
+
+namespace Video2Card::Language::Analyzer
+{
+  class SentenceAnalyzer;
 }
 
 namespace Video2Card::Config
@@ -69,6 +74,11 @@ private:
     void RenderExtractModal();
     void ProcessExtract();
 
+    std::string HighlightTargetWord(const std::string& text, const std::string& targetWord);
+
+    void SaveWindowState();
+    void LoadWindowState();
+
     void UpdateAsyncTasks();
     void CancelAsyncTasks();
 
@@ -90,8 +100,8 @@ private:
     std::unique_ptr<API::AnkiConnectClient> m_AnkiConnectClient;
     std::unique_ptr<Config::ConfigManager> m_ConfigManager;
 
-    std::vector<std::unique_ptr<AI::ITextAIProvider>> m_TextAIProviders;
-    AI::ITextAIProvider* m_ActiveTextAIProvider = nullptr;
+    std::vector<std::unique_ptr<Language::Services::ILanguageService>> m_LanguageServices;
+    std::unique_ptr<Language::Analyzer::SentenceAnalyzer> m_SentenceAnalyzer;
 
     std::vector<std::unique_ptr<Language::ILanguage>> m_Languages;
     Language::ILanguage* m_ActiveLanguage = nullptr;

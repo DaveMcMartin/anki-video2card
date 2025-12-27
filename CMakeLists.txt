@@ -52,6 +52,35 @@ pkg_check_modules(WEBP REQUIRED libwebp)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
 
+# Try to find Mecab with pkg-config first, fall back to manual detection
+pkg_check_modules(MECAB mecab)
+if(NOT MECAB_FOUND)
+    # Fallback: use mecab-config on macOS
+    find_program(MECAB_CONFIG mecab-config)
+    if(MECAB_CONFIG)
+        execute_process(
+            COMMAND ${MECAB_CONFIG} --libs
+            OUTPUT_VARIABLE MECAB_LIBS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        execute_process(
+            COMMAND ${MECAB_CONFIG} --inc-dir
+            OUTPUT_VARIABLE MECAB_INCLUDE_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        # Parse libs to extract library path and library name
+        string(REGEX MATCH "-L[^ ]+" MECAB_LIB_PATH "${MECAB_LIBS}")
+        string(REPLACE "-L" "" MECAB_LIBRARY_DIRS "${MECAB_LIB_PATH}")
+        set(MECAB_LIBRARIES mecab)
+        set(MECAB_FOUND TRUE)
+        message(STATUS "Found Mecab via mecab-config")
+        message(STATUS "  MECAB_INCLUDE_PATH: ${MECAB_INCLUDE_PATH}")
+        message(STATUS "  MECAB_LIBRARY_DIRS: ${MECAB_LIBRARY_DIRS}")
+    else()
+        message(FATAL_ERROR "Mecab not found. Please install it: brew install mecab mecab-ipadic")
+    endif()
+endif()
+
 add_library(imgui_sdl3 STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -67,6 +96,8 @@ target_include_directories(imgui_sdl3 PUBLIC
     ${imgui_SOURCE_DIR}/backends
     ${imgui_SOURCE_DIR}/misc/cpp
 )
+
+
 
 target_link_libraries(imgui_sdl3 PUBLIC SDL3::SDL3)
 
@@ -93,6 +124,8 @@ target_include_directories(AnkiVideo2Card PRIVATE
     ${WEBP_INCLUDE_DIRS}
     ${MPV_INCLUDE_DIRS}
     ${FFMPEG_INCLUDE_DIRS}
+    ${MECAB_INCLUDE_PATH}
+    ${MECAB_INCLUDE_DIRS}
 )
 
 target_link_libraries(AnkiVideo2Card PRIVATE
@@ -103,12 +136,14 @@ target_link_libraries(AnkiVideo2Card PRIVATE
     ${WEBP_LIBRARIES}
     ${MPV_LIBRARIES}
     ${FFMPEG_LIBRARIES}
+    ${MECAB_LIBRARIES}
 )
 
 target_link_directories(AnkiVideo2Card PRIVATE
     ${WEBP_LIBRARY_DIRS}
     ${MPV_LIBRARY_DIRS}
     ${FFMPEG_LIBRARY_DIRS}
+    ${MECAB_LIBRARY_DIRS}
 )
 
 if(APPLE)

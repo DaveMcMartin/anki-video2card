@@ -5,24 +5,23 @@
 
 #include <thread>
 
-#include "ai/ITextAIProvider.h"
 #include "api/AnkiConnectClient.h"
 #include "config/ConfigManager.h"
 #include "language/ILanguage.h"
+#include "language/services/ILanguageService.h"
 
 namespace Video2Card::UI
 {
 
-  ConfigurationSection::ConfigurationSection(API::AnkiConnectClient* ankiConnectClient,
-                                             Config::ConfigManager* configManager,
-                                             std::vector<std::unique_ptr<AI::ITextAIProvider>>* textAIProviders,
-                                             AI::ITextAIProvider** activeTextAIProvider,
-                                             std::vector<std::unique_ptr<Language::ILanguage>>* languages,
-                                             Language::ILanguage** activeLanguage)
+  ConfigurationSection::ConfigurationSection(
+      API::AnkiConnectClient* ankiConnectClient,
+      Config::ConfigManager* configManager,
+      std::vector<std::unique_ptr<Language::Services::ILanguageService>>* languageServices,
+      std::vector<std::unique_ptr<Language::ILanguage>>* languages,
+      Language::ILanguage** activeLanguage)
       : m_AnkiConnectClient(ankiConnectClient)
       , m_ConfigManager(configManager)
-      , m_TextAIProviders(textAIProviders)
-      , m_ActiveTextAIProvider(activeTextAIProvider)
+      , m_LanguageServices(languageServices)
       , m_Languages(languages)
       , m_ActiveLanguage(activeLanguage)
   {}
@@ -31,17 +30,7 @@ namespace Video2Card::UI
 
   void ConfigurationSection::Render()
   {
-    if (ImGui::BeginTabBar("ConfigTabs")) {
-      if (ImGui::BeginTabItem("AnkiConnect")) {
-        RenderAnkiConnectTab();
-        ImGui::EndTabItem();
-      }
-      if (ImGui::BeginTabItem("Text AI")) {
-        RenderTextAITab();
-        ImGui::EndTabItem();
-      }
-      ImGui::EndTabBar();
-    }
+    // Not used - tabs are rendered directly in Application.cpp
   }
 
   void ConfigurationSection::RenderAnkiConnectTab()
@@ -90,66 +79,84 @@ namespace Video2Card::UI
     }
   }
 
-  void ConfigurationSection::RenderTextAITab()
+  void ConfigurationSection::RenderLanguageServicesTab()
   {
     ImGui::Spacing();
-    ImGui::Text("Text AI Provider Selection");
-    ImGui::Separator();
-    ImGui::Spacing();
 
-    if (!m_TextAIProviders || !m_ActiveTextAIProvider || !m_ConfigManager)
+    if (!m_LanguageServices || !m_ConfigManager)
       return;
 
     auto& config = m_ConfigManager->GetConfig();
 
-    if (ImGui::BeginCombo("Provider", (*m_ActiveTextAIProvider)->GetName().c_str())) {
-      for (auto& provider : *m_TextAIProviders) {
-        bool isSelected = (provider.get() == *m_ActiveTextAIProvider);
-        if (ImGui::Selectable(provider->GetName().c_str(), isSelected)) {
-          *m_ActiveTextAIProvider = provider.get();
-          config.TextProvider = provider->GetId();
-          m_ConfigManager->Save();
-        }
-        if (isSelected) {
-          ImGui::SetItemDefaultFocus();
-        }
+    // Group services by type
+    std::vector<Language::Services::ILanguageService*> translators;
+
+    for (auto& service : *m_LanguageServices) {
+      std::string type = service->GetType();
+      if (type == "translator") {
+        translators.push_back(service.get());
       }
-      ImGui::EndCombo();
     }
 
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    // Provider selection
+    if (!translators.empty()) {
+      // Find current selected translator
+      Language::Services::ILanguageService* selectedTranslator = nullptr;
+      int selectedIndex = 0;
 
-    if (*m_ActiveTextAIProvider) {
-      ImGui::Text("Provider Configuration:");
+      for (size_t i = 0; i < translators.size(); i++) {
+        if (translators[i]->GetId() == "deepl") { // Default to DeepL for now
+          selectedTranslator = translators[i];
+          selectedIndex = static_cast<int>(i);
+          break;
+        }
+      }
+
+      if (!selectedTranslator && !translators.empty()) {
+        selectedTranslator = translators[0];
+      }
+
+      ImGui::Text("Provider");
+      ImGui::SetNextItemWidth(-1);
+      if (ImGui::BeginCombo("##TranslationProvider",
+                            selectedTranslator ? selectedTranslator->GetName().c_str() : "None"))
+      {
+        for (size_t i = 0; i < translators.size(); i++) {
+          bool isSelected = (static_cast<int>(i) == selectedIndex);
+          if (ImGui::Selectable(translators[i]->GetName().c_str(), isSelected)) {
+            selectedTranslator = translators[i];
+            selectedIndex = static_cast<int>(i);
+          }
+          if (isSelected) {
+            ImGui::SetItemDefaultFocus();
+          }
+        }
+        ImGui::EndCombo();
+      }
+
+      ImGui::Spacing();
+      ImGui::Separator();
       ImGui::Spacing();
 
-      if ((*m_ActiveTextAIProvider)->RenderConfigurationUI()) {
-        auto j = (*m_ActiveTextAIProvider)->SaveConfig();
-        std::string providerId = (*m_ActiveTextAIProvider)->GetId();
+      // Render selected translator's configuration
+      if (selectedTranslator) {
+        if (selectedTranslator->RenderConfigurationUI()) {
+          // Save config for this service
+          auto serviceConfig = selectedTranslator->SaveConfig();
 
-        if (providerId == "xai") {
-          if (j.contains("api_key"))
-            config.TextApiKey = j["api_key"];
-          if (j.contains("vision_model"))
-            config.TextVisionModel = j["vision_model"];
-          if (j.contains("sentence_model"))
-            config.TextSentenceModel = j["sentence_model"];
-          if (j.contains("available_models"))
-            config.TextAvailableModels = j["available_models"].get<std::vector<std::string>>();
-        } else if (providerId == "google") {
-          if (j.contains("api_key"))
-            config.GoogleApiKey = j["api_key"];
-          if (j.contains("vision_model"))
-            config.GoogleVisionModel = j["vision_model"];
-          if (j.contains("sentence_model"))
-            config.GoogleSentenceModel = j["sentence_model"];
-          if (j.contains("available_models"))
-            config.GoogleAvailableModels = j["available_models"].get<std::vector<std::string>>();
+          if (selectedTranslator->GetId() == "deepl") {
+            if (serviceConfig.contains("api_key"))
+              config.DeepLApiKey = serviceConfig["api_key"];
+            if (serviceConfig.contains("use_free_api"))
+              config.DeepLUseFreeAPI = serviceConfig["use_free_api"];
+            if (serviceConfig.contains("source_lang"))
+              config.DeepLSourceLang = serviceConfig["source_lang"];
+            if (serviceConfig.contains("target_lang"))
+              config.DeepLTargetLang = serviceConfig["target_lang"];
+          }
+
+          m_ConfigManager->Save();
         }
-
-        m_ConfigManager->Save();
       }
     }
   }

@@ -36,7 +36,15 @@ namespace Video2Card::Config
     // Audio Configuration
     std::string AudioFormat = "mp3"; // "mp3" or "opus"
 
-    // UI State
+    // DeepL Translation Configuration
+    std::string DeepLApiKey;
+    bool DeepLUseFreeAPI = true;
+    std::string DeepLSourceLang = "JA";
+    std::string DeepLTargetLang = "EN-US";
+
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+
     std::string LastNoteType;
     std::string LastDeck;
     std::map<std::string, std::map<std::string, std::pair<bool, int>>> FieldMappings;

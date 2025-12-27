@@ -12,15 +12,14 @@
 #include <iostream>
 #include <thread>
 
-#include "ai/GoogleTextProvider.h"
-#include "ai/ITextAIProvider.h"
-#include "ai/XAiTextProvider.h"
 #include "api/AnkiConnectClient.h"
 #include "config/ConfigManager.h"
 #include "core/Logger.h"
 #include "core/sdl/SDLWrappers.h"
 #include "language/ILanguage.h"
 #include "language/JapaneseLanguage.h"
+#include "language/analyzer/SentenceAnalyzer.h"
+#include "language/services/DeepLService.h"
 #include "ui/AnkiCardSettingsSection.h"
 #include "ui/ConfigurationSection.h"
 #include "ui/StatusSection.h"
@@ -207,38 +206,24 @@ namespace Video2Card
       m_ActiveLanguage = m_Languages[0].get();
     }
 
-    // Initialize text AI providers
-    m_TextAIProviders.push_back(std::make_unique<AI::GoogleTextProvider>());
-    m_TextAIProviders.push_back(std::make_unique<AI::XAiTextProvider>());
+    // Initialize language services
+    auto deeplService = std::make_unique<Language::Services::DeepLService>();
+    nlohmann::json deeplConfig;
+    deeplConfig["api_key"] = m_ConfigManager->GetConfig().DeepLApiKey;
+    deeplConfig["use_free_api"] = m_ConfigManager->GetConfig().DeepLUseFreeAPI;
+    deeplConfig["source_lang"] = m_ConfigManager->GetConfig().DeepLSourceLang;
+    deeplConfig["target_lang"] = m_ConfigManager->GetConfig().DeepLTargetLang;
+    deeplService->LoadConfig(deeplConfig);
+    m_LanguageServices.push_back(std::move(deeplService));
+    AF_INFO("Language services initialized");
 
-    // Set active provider from config
-    std::string selectedProvider = m_ConfigManager->GetConfig().TextProvider;
-    for (auto& provider : m_TextAIProviders) {
-      if (provider->GetId() == selectedProvider || provider->GetName() == selectedProvider) {
-        m_ActiveTextAIProvider = provider.get();
-        break;
-      }
-    }
-    // Default to first provider if not found
-    if (!m_ActiveTextAIProvider && !m_TextAIProviders.empty()) {
-      m_ActiveTextAIProvider = m_TextAIProviders[0].get();
-    }
-
-    // Load provider configs
-    for (auto& provider : m_TextAIProviders) {
-      nlohmann::json providerConfig;
-      if (provider->GetId() == "xai") {
-        providerConfig["api_key"] = m_ConfigManager->GetConfig().TextApiKey;
-        providerConfig["vision_model"] = m_ConfigManager->GetConfig().TextVisionModel;
-        providerConfig["sentence_model"] = m_ConfigManager->GetConfig().TextSentenceModel;
-        providerConfig["available_models"] = m_ConfigManager->GetConfig().TextAvailableModels;
-      } else if (provider->GetId() == "google") {
-        providerConfig["api_key"] = m_ConfigManager->GetConfig().GoogleApiKey;
-        providerConfig["vision_model"] = m_ConfigManager->GetConfig().GoogleVisionModel;
-        providerConfig["sentence_model"] = m_ConfigManager->GetConfig().GoogleSentenceModel;
-        providerConfig["available_models"] = m_ConfigManager->GetConfig().GoogleAvailableModels;
-      }
-      provider->LoadConfig(providerConfig);
+    // Initialize sentence analyzer
+    m_SentenceAnalyzer = std::make_unique<Language::Analyzer::SentenceAnalyzer>();
+    m_SentenceAnalyzer->SetLanguageServices(&m_LanguageServices);
+    if (m_SentenceAnalyzer->Initialize()) {
+      AF_INFO("Sentence analyzer initialized successfully");
+    } else {
+      AF_ERROR("Failed to initialize sentence analyzer");
     }
 
     std::string ankiUrl = m_ConfigManager->GetConfig().AnkiConnectUrl;
@@ -248,12 +233,8 @@ namespace Video2Card
 
     m_VideoSection =
         std::make_unique<UI::VideoSection>(m_Renderer, m_ConfigManager.get(), &m_Languages, &m_ActiveLanguage);
-    m_ConfigurationSection = std::make_unique<UI::ConfigurationSection>(m_AnkiConnectClient.get(),
-                                                                        m_ConfigManager.get(),
-                                                                        &m_TextAIProviders,
-                                                                        &m_ActiveTextAIProvider,
-                                                                        &m_Languages,
-                                                                        &m_ActiveLanguage);
+    m_ConfigurationSection = std::make_unique<UI::ConfigurationSection>(
+        m_AnkiConnectClient.get(), m_ConfigManager.get(), &m_LanguageServices, &m_Languages, &m_ActiveLanguage);
     m_AnkiCardSettingsSection =
         std::make_unique<UI::AnkiCardSettingsSection>(m_Renderer, m_AnkiConnectClient.get(), m_ConfigManager.get());
     m_StatusSection = std::make_unique<UI::StatusSection>();
@@ -274,7 +255,8 @@ namespace Video2Card
 
     m_VideoSection->SetOnExtractCallback([this]() { OnExtract(); });
 
-    // Restore the last loaded video from previous session
+    LoadWindowState();
+
     auto lastVideoPath = Utils::LastVideoPath::Load();
     if (lastVideoPath) {
       m_VideoSection->LoadVideoFromFile(lastVideoPath.value());
@@ -300,6 +282,7 @@ namespace Video2Card
 
   void Application::Shutdown()
   {
+    SaveWindowState();
     CancelAsyncTasks();
 
     m_VideoSection.reset();
@@ -389,7 +372,7 @@ namespace Video2Card
       ImGui::DockBuilderDockWindow("Video Player", dock_main_id);
       ImGui::DockBuilderDockWindow("Card", dock_right_id);
       ImGui::DockBuilderDockWindow("AnkiConnect", dock_right_id);
-      ImGui::DockBuilderDockWindow("Text AI", dock_right_id);
+      ImGui::DockBuilderDockWindow("Translation", dock_right_id);
       ImGui::DockBuilderDockWindow("Status", dock_bottom_id);
 
       ImGuiDockNode* node = ImGui::DockBuilderGetNode(dock_main_id);
@@ -421,8 +404,8 @@ namespace Video2Card
       m_ConfigurationSection->RenderAnkiConnectTab();
       ImGui::End();
 
-      ImGui::Begin("Text AI", nullptr, ImGuiWindowFlags_NoCollapse);
-      m_ConfigurationSection->RenderTextAITab();
+      ImGui::Begin("Translation", nullptr, ImGuiWindowFlags_NoCollapse);
+      m_ConfigurationSection->RenderLanguageServicesTab();
       ImGui::End();
     }
 
@@ -497,7 +480,7 @@ namespace Video2Card
       m_OpenExtractModal = false;
     }
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(500, 0), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(600, 300), ImVec2(700, 400));
     if (ImGui::BeginPopupModal("Extract Result", &m_ShowExtractModal, ImGuiWindowFlags_AlwaysAutoResize)) {
       auto InputText = [](const char* label, std::string* str) {
         auto callback = [](ImGuiInputTextCallbackData* data) {
@@ -622,7 +605,7 @@ namespace Video2Card
         }
         AF_INFO("Analyzing sentence...");
         AF_DEBUG("Sentence: '{}', Target Word: '{}'", sentence, targetWord);
-        nlohmann::json analysis = m_ActiveTextAIProvider->AnalyzeSentence(sentence, targetWord, m_ActiveLanguage);
+        nlohmann::json analysis = m_SentenceAnalyzer->AnalyzeSentence(sentence, targetWord, m_ActiveLanguage);
 
         if (m_CancelRequested.load()) {
           AF_INFO("Processing task cancelled after analysis.");
@@ -660,8 +643,10 @@ namespace Video2Card
                              audioData]() {
           if (m_AnkiCardSettingsSection) {
             AF_INFO("Setting fields in Anki Card Settings...");
-            m_AnkiCardSettingsSection->SetFieldByTool(0, analyzedSentence);
-            m_AnkiCardSettingsSection->SetFieldByTool(1, furigana);
+            std::string highlightedSentence = HighlightTargetWord(analyzedSentence, analyzedTargetWord);
+            std::string highlightedFurigana = HighlightTargetWord(furigana, analyzedTargetWord);
+            m_AnkiCardSettingsSection->SetFieldByTool(0, highlightedSentence);
+            m_AnkiCardSettingsSection->SetFieldByTool(1, highlightedFurigana);
             m_AnkiCardSettingsSection->SetFieldByTool(2, translation);
             m_AnkiCardSettingsSection->SetFieldByTool(3, analyzedTargetWord);
             m_AnkiCardSettingsSection->SetFieldByTool(4, targetWordFurigana);
@@ -734,6 +719,58 @@ namespace Video2Card
     }
   }
 
+  std::string Application::HighlightTargetWord(const std::string& text, const std::string& targetWord)
+  {
+    if (targetWord.empty() || text.empty()) {
+      return text;
+    }
+
+    std::string result = text;
+    size_t pos = 0;
+
+    while ((pos = result.find(targetWord, pos)) != std::string::npos) {
+      result.insert(pos, "<b style=\"color: #00FF00\">");
+      pos += std::string("<b style=\"color: #00FF00\">").length();
+
+      pos = result.find(targetWord, pos) + targetWord.length();
+      result.insert(pos, "</b>");
+      pos += std::string("</b>").length();
+    }
+
+    return result;
+  }
+
+  void Application::SaveWindowState()
+  {
+    if (!m_Window || !m_ConfigManager) {
+      return;
+    }
+
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(m_Window, &width, &height);
+
+    if (width > 0 && height > 0) {
+      auto& config = m_ConfigManager->GetConfig();
+      config.WindowWidth = width;
+      config.WindowHeight = height;
+      m_ConfigManager->Save();
+    }
+  }
+
+  void Application::LoadWindowState()
+  {
+    if (!m_Window || !m_ConfigManager) {
+      return;
+    }
+
+    const auto& config = m_ConfigManager->GetConfig();
+    if (config.WindowWidth > 0 && config.WindowHeight > 0) {
+      SDL_SetWindowSize(m_Window, config.WindowWidth, config.WindowHeight);
+      SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+  }
+
   void Application::UpdateAsyncTasks()
   {
     std::lock_guard<std::mutex> lock(m_TaskMutex);
@@ -758,7 +795,6 @@ namespace Video2Card
   void Application::CancelAsyncTasks()
   {
     m_CancelRequested.store(true);
-    // Wait for current task to finish or check cancel flag
     std::lock_guard<std::mutex> lock(m_TaskMutex);
     while (!m_ActiveTasks.empty()) {
       m_ActiveTasks.pop();

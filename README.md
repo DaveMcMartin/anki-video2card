@@ -1,6 +1,6 @@
 # Anki Video2Card
 
-Anki Video2Card is a modern C++23 cross-platform desktop application designed to streamline the process of creating high-quality Anki cards directly from video files. It leverages modern AI technologies for text analysis and integrates powerful media libraries to automate the card creation workflow from your favorite anime, movies, or shows.
+Anki Video2Card is a modern C++23 cross-platform desktop application designed to streamline the process of creating high-quality Anki cards directly from video files. It uses local morphological analysis and dictionary lookups to automatically extract and annotate Japanese text from your favorite anime, movies, or shows.
 
 ## Features
 
@@ -12,10 +12,12 @@ Anki Video2Card is a modern C++23 cross-platform desktop application designed to
   - **Snapshot**: Instantly captures the current video frame as the card image.
   - **Audio**: Extracts audio clips corresponding to the current subtitle or timestamp using **FFmpeg**.
   - **Subtitles**: Automatically extracts the current subtitle text.
-- **AI Integration**:
-  - **Text AI**: Integration with Gemini (Google) and xAI (Grok) for sentence analysis, translation, and definition generation.
+- **Local Text Analysis**:
+  - **Morphological Analysis**: Uses Mecab for accurate word segmentation and dictionary forms.
+  - **Furigana Generation**: Automatically generates ruby text annotations for kanji.
+  - **Dictionary Lookups**: Integrates with Sakura-Paris for word definitions.
 - **Anki Integration**: Connects directly to Anki via AnkiConnect to create cards automatically.
-- **Smart Fields**: Automatically detects and fills fields like Sentence, Translation, Target Word, Furigana, Pitch Accent, and Definitions.
+- **Smart Fields**: Automatically detects and fills fields like Sentence, Target Word, Furigana, and Definitions.
 
 ## Screenshots
 
@@ -39,13 +41,14 @@ Anki Video2Card is a modern C++23 cross-platform desktop application designed to
   - **libmpv**: For video playback.
   - **FFmpeg**: For audio extraction (libavformat, libavcodec, libavutil, libswscale).
   - **libwebp**: For image encoding.
+  - **Mecab**: For morphological analysis of Japanese text.
   - **Anki**: With the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed.
 
 ### Installing Dependencies
 
 **macOS (Homebrew):**
 ```bash
-brew install mpv ffmpeg webp
+brew install mpv ffmpeg webp mecab mecab-ipadic
 ```
 
 **Linux (Ubuntu/Debian):**
@@ -106,7 +109,6 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 1. **Configuration**:
    - Go to the "Configuration" tab.
    - Set up your AnkiConnect URL (default is usually `http://localhost:8765`).
-   - Enter your API keys for Text AI providers (Google Gemini or xAI).
    - On the Card tab, select the Note Type, deck, and fields you want to fill.
 
 2. **Card Creation**:
@@ -124,8 +126,8 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 1. **Which Note Type do you use?**
    The "Japanese Sentence" note type from the Ankidrone Foundation deck is recommended, but you can map fields to any note type.
 
-2. **Can I use other AI providers?**
-   The architecture is designed to be extensible. You can add new providers by implementing the appropriate interfaces in the `ai/` modules.
+2. **Why local analysis instead of AI?**
+   Local analysis using Mecab and dictionary services provides fast, reliable, and free Japanese language processing without API dependencies or costs.
 
 ## Dependencies
 
@@ -135,6 +137,7 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 - **cpp-httplib**: Lightweight HTTP client library.
 - **FFmpeg**: Video and audio processing library.
 - **libmpv**: Media player library.
+- **Mecab**: Japanese morphological analyzer.
 
 ## License
 
@@ -145,11 +148,11 @@ This project is licensed under the GNU General Public License v3.0 (GPLv3). See 
 This is a work in progress. Here are some planned features, it is not in priority order:
 
 - [ ] Github Action on release that generates binaries for Windows, macOS, and Linux.
-- [ ] Add support for Ollama
-- [ ] Give user more control over AI configuration (prompts, etc)
+- [ ] Implement pitch accent generation from NJAD database
+- [ ] Add support for multiple dictionary sources
 - [ ] Add custom auto-fill fields for the user
-- [ ] Add support for OpenAI
-- [ ] Add support for DeepSeek
+- [ ] Improve furigana handling for edge cases
+- [ ] Audio fetching from online sources (Forvo, NHK, etc)
 
 ## Contributing
 

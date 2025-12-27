@@ -75,6 +75,20 @@ namespace Video2Card::Config
       if (j.contains("audio_format"))
         m_Config.AudioFormat = j["audio_format"];
 
+      if (j.contains("deepl_api_key"))
+        m_Config.DeepLApiKey = j["deepl_api_key"];
+      if (j.contains("deepl_use_free_api"))
+        m_Config.DeepLUseFreeAPI = j["deepl_use_free_api"];
+      if (j.contains("deepl_source_lang"))
+        m_Config.DeepLSourceLang = j["deepl_source_lang"];
+      if (j.contains("deepl_target_lang"))
+        m_Config.DeepLTargetLang = j["deepl_target_lang"];
+
+      if (j.contains("window_width"))
+        m_Config.WindowWidth = j["window_width"];
+      if (j.contains("window_height"))
+        m_Config.WindowHeight = j["window_height"];
+
       if (j.contains("last_note_type"))
         m_Config.LastNoteType = j["last_note_type"];
       if (j.contains("last_deck"))
@@ -127,6 +141,14 @@ namespace Video2Card::Config
     j["audio_available_voices"] = voicesJson;
 
     j["audio_format"] = m_Config.AudioFormat;
+
+    j["deepl_api_key"] = m_Config.DeepLApiKey;
+    j["deepl_use_free_api"] = m_Config.DeepLUseFreeAPI;
+    j["deepl_source_lang"] = m_Config.DeepLSourceLang;
+    j["deepl_target_lang"] = m_Config.DeepLTargetLang;
+
+    j["window_width"] = m_Config.WindowWidth;
+    j["window_height"] = m_Config.WindowHeight;
 
     j["last_note_type"] = m_Config.LastNoteType;
     j["last_deck"] = m_Config.LastDeck;
