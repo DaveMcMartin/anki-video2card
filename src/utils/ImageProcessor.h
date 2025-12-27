@@ -52,8 +52,8 @@ private:
     /**
      * Calculate scaled dimensions maintaining aspect ratio
      */
-    static void CalculateScaledDimensions(int srcWidth, int srcHeight, int maxWidth, int maxHeight,
-                                          int& outWidth, int& outHeight);
+    static void
+    CalculateScaledDimensions(int srcWidth, int srcHeight, int maxWidth, int maxHeight, int& outWidth, int& outHeight);
   };
 
 } // namespace Video2Card::Utils

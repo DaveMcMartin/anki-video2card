@@ -1,19 +1,18 @@
 #include "utils/ImageProcessor.h"
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <cstring>
-
-#include <SDL3/SDL.h>
 #include <webp/encode.h>
 
 #include "stb_image.h"
 #include "stb_image_write.h"
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize2.h"
-
 #include "core/Logger.h"
 #include "core/sdl/SDLWrappers.h"
+#include "stb_image_resize2.h"
 
 namespace Video2Card::Utils
 {
@@ -26,8 +25,7 @@ namespace Video2Card::Utils
     }
 
     int width{}, height{}, channels{};
-    unsigned char* data = stbi_load_from_memory(
-        imageBuffer.data(), imageBuffer.size(), &width, &height, &channels, 4);
+    unsigned char* data = stbi_load_from_memory(imageBuffer.data(), imageBuffer.size(), &width, &height, &channels, 4);
 
     if (!data) {
       AF_ERROR("Failed to load image from buffer: {}", stbi_failure_reason());
@@ -54,8 +52,8 @@ namespace Video2Card::Utils
     return surface;
   }
 
-  void ImageProcessor::CalculateScaledDimensions(int srcWidth, int srcHeight, int maxWidth, int maxHeight,
-                                                 int& outWidth, int& outHeight)
+  void ImageProcessor::CalculateScaledDimensions(
+      int srcWidth, int srcHeight, int maxWidth, int maxHeight, int& outWidth, int& outHeight)
   {
     float srcAspect = static_cast<float>(srcWidth) / static_cast<float>(srcHeight);
     float maxAspect = static_cast<float>(maxWidth) / static_cast<float>(maxHeight);
@@ -99,8 +97,7 @@ namespace Video2Card::Utils
     result.assign(output, output + output_size);
     free(output);
 
-    AF_INFO("Encoded WebP: {}x{}, size: {} bytes, quality: {}", surface->w, surface->h, output_size,
-            qualityPercent);
+    AF_INFO("Encoded WebP: {}x{}, size: {} bytes, quality: {}", surface->w, surface->h, output_size, qualityPercent);
     return result;
   }
 
@@ -143,8 +140,15 @@ namespace Video2Card::Utils
     const unsigned char* srcPixels = static_cast<const unsigned char*>(surface->pixels);
     unsigned char* dstPixels = static_cast<unsigned char*>(scaledSurface->pixels);
 
-    stbir_resize_uint8_srgb(srcPixels, surface->w, surface->h, surface->pitch, dstPixels, newWidth, newHeight,
-                            scaledSurface->pitch, STBIR_RGBA); // RGBA pixel layout
+    stbir_resize_uint8_srgb(srcPixels,
+                            surface->w,
+                            surface->h,
+                            surface->pitch,
+                            dstPixels,
+                            newWidth,
+                            newHeight,
+                            scaledSurface->pitch,
+                            STBIR_RGBA); // RGBA pixel layout
 
     // Encode to WebP
     auto result = SurfaceToWebP(scaledSurface.get(), qualityPercent);

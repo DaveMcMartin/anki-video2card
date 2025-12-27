@@ -33,8 +33,6 @@ namespace Video2Card::Config
     std::string AudioVoiceId;
     std::vector<std::pair<std::string, std::string>> AudioAvailableVoices;
 
-
-
     // Audio Configuration
     std::string AudioFormat = "mp3"; // "mp3" or "opus"
 

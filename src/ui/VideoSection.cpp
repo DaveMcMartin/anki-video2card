@@ -1,33 +1,34 @@
 #include "ui/VideoSection.h"
-#include "config/ConfigManager.h"
-#include "core/Logger.h"
-#include "language/ILanguage.h"
-#include "utils/VideoState.h"
 
 #include <SDL3/SDL.h>
+
 #include <imgui.h>
 #include <imgui_internal.h>
-
-#include "IconsFontAwesome6.h"
 
 #include <mpv/client.h>
 #include <mpv/render.h>
 
+#include "IconsFontAwesome6.h"
+#include "config/ConfigManager.h"
+#include "core/Logger.h"
+#include "language/ILanguage.h"
+#include "utils/LastVideoPath.h"
+#include "utils/VideoState.h"
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/audio_fifo.h>
 #include <libavutil/avutil.h>
 #include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
-#include <libavutil/audio_fifo.h>
+#include <libswscale/swscale.h>
 }
 
-#include <webp/encode.h>
-
-#include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <webp/encode.h>
 
 namespace Video2Card::UI
 {
@@ -37,7 +38,8 @@ namespace Video2Card::UI
     return nullptr; // For SW render we don't need GL proc address
   }
 
-  VideoSection::VideoSection(SDL_Renderer* renderer, Config::ConfigManager* configManager,
+  VideoSection::VideoSection(SDL_Renderer* renderer,
+                             Config::ConfigManager* configManager,
                              std::vector<std::unique_ptr<Language::ILanguage>>* languages,
                              Language::ILanguage** activeLanguage)
       : m_Renderer(renderer)
@@ -75,10 +77,8 @@ namespace Video2Card::UI
       return;
     }
 
-    mpv_render_param params[] = {
-        {MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_SW)},
-        {MPV_RENDER_PARAM_INVALID, nullptr}
-    };
+    mpv_render_param params[] = {{MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_SW)},
+                                 {MPV_RENDER_PARAM_INVALID, nullptr}};
 
     if (mpv_render_context_create(&m_mpv_render, m_mpv, params) < 0) {
       std::cerr << "Failed to create mpv render context" << std::endl;
@@ -105,7 +105,8 @@ namespace Video2Card::UI
 
   void VideoSection::LoadVideoFromFile(const std::string& path)
   {
-    if (!m_mpv) return;
+    if (!m_mpv)
+      return;
 
     AF_INFO("Loading video file: {}", path);
     m_CurrentVideoPath = path;
@@ -117,6 +118,9 @@ namespace Video2Card::UI
       m_PendingSeekPosition = savedPosition / 1000.0;
       AF_DEBUG("Deferred seek position set to: {} seconds", m_PendingSeekPosition);
     }
+
+    // Save the last loaded video path for restoration on next startup
+    Utils::LastVideoPath::Save(path);
 
     const char* cmd[] = {"loadfile", path.c_str(), nullptr};
     int res = mpv_command_async(m_mpv, 0, cmd);
@@ -137,6 +141,8 @@ namespace Video2Card::UI
       Utils::VideoState::SavePlaybackPosition(m_CurrentVideoPath, positionMs);
       AF_DEBUG("Saved playback position: {} ms", positionMs);
     }
+    // Clear the last video path when user explicitly clears the video
+    Utils::LastVideoPath::Clear();
     m_ShouldClearVideo = true;
   }
 
@@ -177,11 +183,13 @@ namespace Video2Card::UI
 
   void VideoSection::HandleMPVEvents()
   {
-    if (!m_mpv) return;
+    if (!m_mpv)
+      return;
 
     while (true) {
       mpv_event* event = mpv_wait_event(m_mpv, 0);
-      if (event->event_id == MPV_EVENT_NONE) break;
+      if (event->event_id == MPV_EVENT_NONE)
+        break;
 
       if (event->event_id == MPV_EVENT_FILE_LOADED) {
         m_FileLoadedSuccessfully = true;
@@ -192,25 +200,26 @@ namespace Video2Card::UI
           m_PendingSeekPosition = -1.0;
         }
       } else if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
-        mpv_event_property* prop = (mpv_event_property*)event->data;
-        if (prop->data == nullptr) continue;
+        mpv_event_property* prop = (mpv_event_property*) event->data;
+        if (prop->data == nullptr)
+          continue;
 
         std::string name = prop->name;
         if (name == "time-pos" && prop->format == MPV_FORMAT_DOUBLE) {
-          m_CurrentTime = *(double*)prop->data;
+          m_CurrentTime = *(double*) prop->data;
         } else if (name == "duration" && prop->format == MPV_FORMAT_DOUBLE) {
-          m_Duration = *(double*)prop->data;
+          m_Duration = *(double*) prop->data;
         } else if (name == "pause" && prop->format == MPV_FORMAT_FLAG) {
-          m_IsPlaying = !(*(int*)prop->data);
+          m_IsPlaying = !(*(int*) prop->data);
         } else if (name == "width" && prop->format == MPV_FORMAT_INT64) {
-          m_VideoWidth = (int)*(int64_t*)prop->data;
+          m_VideoWidth = (int) *(int64_t*) prop->data;
           AF_INFO("Video width changed: {}", m_VideoWidth);
         } else if (name == "height" && prop->format == MPV_FORMAT_INT64) {
-          m_VideoHeight = (int)*(int64_t*)prop->data;
+          m_VideoHeight = (int) *(int64_t*) prop->data;
           AF_INFO("Video height changed: {}", m_VideoHeight);
         }
       } else if (event->event_id == MPV_EVENT_LOG_MESSAGE) {
-        mpv_event_log_message* msg = (mpv_event_log_message*)event->data;
+        mpv_event_log_message* msg = (mpv_event_log_message*) event->data;
         AF_DEBUG("MPV: [{}] {}", msg->prefix, msg->text);
       } else if (event->event_id == MPV_EVENT_START_FILE) {
         AF_INFO("MPV: Start file");
@@ -222,32 +231,36 @@ namespace Video2Card::UI
 
   void VideoSection::UpdateVideoTexture()
   {
-    if (!m_mpv_render) return;
+    if (!m_mpv_render)
+      return;
 
-    if (m_VideoWidth <= 0 || m_VideoHeight <= 0) return;
+    if (m_VideoWidth <= 0 || m_VideoHeight <= 0)
+      return;
 
     // Check if we need to resize texture
     bool textureNeedsUpdate = false;
     if (!m_VideoTexture) {
-        textureNeedsUpdate = true;
+      textureNeedsUpdate = true;
     } else {
-        float w = 0, h = 0;
-        SDL_GetTextureSize(m_VideoTexture, &w, &h);
-        if ((int)w != m_VideoWidth || (int)h != m_VideoHeight) {
-            textureNeedsUpdate = true;
-        }
+      float w = 0, h = 0;
+      SDL_GetTextureSize(m_VideoTexture, &w, &h);
+      if ((int) w != m_VideoWidth || (int) h != m_VideoHeight) {
+        textureNeedsUpdate = true;
+      }
     }
 
     if (textureNeedsUpdate) {
-        AF_INFO("Recreating video texture: {}x{}", m_VideoWidth, m_VideoHeight);
-        if (m_VideoTexture) SDL_DestroyTexture(m_VideoTexture);
-        m_VideoTexture = SDL_CreateTexture(m_Renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, m_VideoWidth, m_VideoHeight);
+      AF_INFO("Recreating video texture: {}x{}", m_VideoWidth, m_VideoHeight);
+      if (m_VideoTexture)
+        SDL_DestroyTexture(m_VideoTexture);
+      m_VideoTexture = SDL_CreateTexture(
+          m_Renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, m_VideoWidth, m_VideoHeight);
 
-        if (!m_VideoTexture) {
-            AF_ERROR("Failed to create video texture: {}", SDL_GetError());
-            return;
-        }
-        m_FrameBuffer.resize(m_VideoWidth * m_VideoHeight * 4);
+      if (!m_VideoTexture) {
+        AF_ERROR("Failed to create video texture: {}", SDL_GetError());
+        return;
+      }
+      m_FrameBuffer.resize(m_VideoWidth * m_VideoHeight * 4);
     }
 
     // Render frame
@@ -268,13 +281,11 @@ namespace Video2Card::UI
     int size[2] = {m_VideoWidth, m_VideoHeight};
     const char* format = "rgba";
 
-    mpv_render_param sw_params[] = {
-        {MPV_RENDER_PARAM_SW_SIZE, size},
-        {MPV_RENDER_PARAM_SW_FORMAT, (void*)format},
-        {MPV_RENDER_PARAM_SW_STRIDE, &stride},
-        {MPV_RENDER_PARAM_SW_POINTER, data},
-        {MPV_RENDER_PARAM_INVALID, nullptr}
-    };
+    mpv_render_param sw_params[] = {{MPV_RENDER_PARAM_SW_SIZE, size},
+                                    {MPV_RENDER_PARAM_SW_FORMAT, (void*) format},
+                                    {MPV_RENDER_PARAM_SW_STRIDE, &stride},
+                                    {MPV_RENDER_PARAM_SW_POINTER, data},
+                                    {MPV_RENDER_PARAM_INVALID, nullptr}};
 
     // Only update if necessary? mpv_render_context_update tells us.
     // But for simplicity in this loop, we can try to render.
@@ -282,16 +293,18 @@ namespace Video2Card::UI
 
     uint64_t flags = mpv_render_context_update(m_mpv_render);
     if (flags & MPV_RENDER_UPDATE_FRAME) {
-        int res = mpv_render_context_render(m_mpv_render, sw_params);
-        if (res >= 0) {
-            SDL_UpdateTexture(m_VideoTexture, nullptr, m_FrameBuffer.data(), stride);
-        }
+      int res = mpv_render_context_render(m_mpv_render, sw_params);
+      if (res >= 0) {
+        SDL_UpdateTexture(m_VideoTexture, nullptr, m_FrameBuffer.data(), stride);
+      }
     }
   }
 
   void VideoSection::Render()
   {
-    ImGui::Begin("Video Player", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("Video Player",
+                 nullptr,
+                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse);
 
     if (m_Languages && m_ActiveLanguage && *m_ActiveLanguage) {
       ImGui::SetNextItemWidth(150);
@@ -355,18 +368,19 @@ namespace Video2Card::UI
 
     // Shortcuts
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-        if (ImGui::IsKeyPressed(ImGuiKey_Space)) {
-            TogglePlayback();
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-            Seek(5.0);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-            Seek(-5.0);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_M)) {
-            if (m_OnExtractCallback) m_OnExtractCallback();
-        }
+      if (ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        TogglePlayback();
+      }
+      if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+        Seek(5.0);
+      }
+      if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+        Seek(-5.0);
+      }
+      if (ImGui::IsKeyPressed(ImGuiKey_M)) {
+        if (m_OnExtractCallback)
+          m_OnExtractCallback();
+      }
     }
 
     ImGui::End();
@@ -426,7 +440,7 @@ namespace Video2Card::UI
     ImGui::SameLine();
 
     if (ImGui::Button(ICON_FA_TRASH, ImVec2(buttonWidth, 0))) {
-        ClearVideo();
+      ClearVideo();
     }
 
     ImGui::SameLine();
@@ -450,14 +464,16 @@ namespace Video2Card::UI
 
   void VideoSection::TogglePlayback()
   {
-    if (!m_mpv) return;
+    if (!m_mpv)
+      return;
     const char* cmd[] = {"cycle", "pause", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
   }
 
   void VideoSection::Seek(double seconds)
   {
-    if (!m_mpv) return;
+    if (!m_mpv)
+      return;
     std::string secondsStr = std::to_string(seconds);
     const char* cmd[] = {"seek", secondsStr.c_str(), "relative", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
@@ -465,7 +481,8 @@ namespace Video2Card::UI
 
   void VideoSection::SeekAbsolute(double timestamp)
   {
-    if (!m_mpv) return;
+    if (!m_mpv)
+      return;
     std::string timestampStr = std::to_string(timestamp);
     const char* cmd[] = {"seek", timestampStr.c_str(), "absolute", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
@@ -474,36 +491,41 @@ namespace Video2Card::UI
   std::vector<unsigned char> VideoSection::GetCurrentFrameImage()
   {
     if (m_FrameBuffer.empty() || m_VideoWidth <= 0 || m_VideoHeight <= 0) {
-        return {};
+      return {};
     }
 
     // Calculate new dimensions (max 320x320)
     int newWidth = m_VideoWidth;
     int newHeight = m_VideoHeight;
-    
+
     if (newWidth > 320 || newHeight > 320) {
-        float scale = std::min(320.0f / newWidth, 320.0f / newHeight);
-        newWidth = (int)(newWidth * scale);
-        newHeight = (int)(newHeight * scale);
+      float scale = std::min(320.0f / newWidth, 320.0f / newHeight);
+      newWidth = (int) (newWidth * scale);
+      newHeight = (int) (newHeight * scale);
     }
 
     // Scale using libswscale
-    struct SwsContext* sws_ctx = sws_getContext(
-        m_VideoWidth, m_VideoHeight, AV_PIX_FMT_RGBA,
-        newWidth, newHeight, AV_PIX_FMT_RGBA,
-        SWS_BILINEAR, nullptr, nullptr, nullptr
-    );
+    struct SwsContext* sws_ctx = sws_getContext(m_VideoWidth,
+                                                m_VideoHeight,
+                                                AV_PIX_FMT_RGBA,
+                                                newWidth,
+                                                newHeight,
+                                                AV_PIX_FMT_RGBA,
+                                                SWS_BILINEAR,
+                                                nullptr,
+                                                nullptr,
+                                                nullptr);
 
     if (!sws_ctx) {
-        AF_ERROR("Failed to create sws context for image resizing");
-        return {};
+      AF_ERROR("Failed to create sws context for image resizing");
+      return {};
     }
 
     std::vector<uint8_t> scaledBuffer(newWidth * newHeight * 4);
-    uint8_t* srcSlice[] = { m_FrameBuffer.data() };
-    int srcStride[] = { m_VideoWidth * 4 };
-    uint8_t* dstSlice[] = { scaledBuffer.data() };
-    int dstStride[] = { newWidth * 4 };
+    uint8_t* srcSlice[] = {m_FrameBuffer.data()};
+    int srcStride[] = {m_VideoWidth * 4};
+    uint8_t* dstSlice[] = {scaledBuffer.data()};
+    int dstStride[] = {newWidth * 4};
 
     sws_scale(sws_ctx, srcSlice, srcStride, 0, m_VideoHeight, dstSlice, dstStride);
     sws_freeContext(sws_ctx);
@@ -511,26 +533,27 @@ namespace Video2Card::UI
     // Encode to WebP
     uint8_t* output;
     size_t size = WebPEncodeRGBA(scaledBuffer.data(), newWidth, newHeight, newWidth * 4, 90.0f, &output);
-    
+
     if (size > 0) {
-        std::vector<unsigned char> result(output, output + size);
-        WebPFree(output);
-        return result;
+      std::vector<unsigned char> result(output, output + size);
+      WebPFree(output);
+      return result;
     }
-    
+
     return {};
   }
 
   SubtitleData VideoSection::GetCurrentSubtitle()
   {
     SubtitleData data;
-    if (!m_mpv) return data;
+    if (!m_mpv)
+      return data;
 
     char* text = nullptr;
     mpv_get_property(m_mpv, "sub-text", MPV_FORMAT_STRING, &text);
     if (text) {
-        data.text = text;
-        mpv_free(text);
+      data.text = text;
+      mpv_free(text);
     }
 
     mpv_get_property(m_mpv, "sub-start", MPV_FORMAT_DOUBLE, &data.start);
@@ -543,8 +566,8 @@ namespace Video2Card::UI
 
     // If we can't get precise timing, default to a window around current time
     if (data.start == 0.0 && data.end == 0.0 && !data.text.empty()) {
-        data.start = m_CurrentTime;
-        data.end = m_CurrentTime + 2.0; // Default duration
+      data.start = m_CurrentTime;
+      data.end = m_CurrentTime + 2.0; // Default duration
     }
 
     return data;
@@ -556,21 +579,24 @@ namespace Video2Card::UI
   }
 
   // Audio Extraction using FFmpeg
-  struct IOContext {
-      std::vector<uint8_t> buffer;
-      int pos = 0;
+  struct IOContext
+  {
+    std::vector<uint8_t> buffer;
+    int pos = 0;
   };
 
-  static int write_packet(void *opaque, const uint8_t *buf, int buf_size) {
-      IOContext *ctx = (IOContext *)opaque;
-      ctx->buffer.insert(ctx->buffer.end(), buf, buf + buf_size);
-      ctx->pos += buf_size;
-      return buf_size;
+  static int write_packet(void* opaque, const uint8_t* buf, int buf_size)
+  {
+    IOContext* ctx = (IOContext*) opaque;
+    ctx->buffer.insert(ctx->buffer.end(), buf, buf + buf_size);
+    ctx->pos += buf_size;
+    return buf_size;
   }
 
   std::vector<unsigned char> VideoSection::GetAudioClip(double start, double end)
   {
-    if (m_CurrentVideoPath.empty()) return {};
+    if (m_CurrentVideoPath.empty())
+      return {};
 
     AF_INFO("Extracting audio from {} to {}", start, end);
 
@@ -578,28 +604,28 @@ namespace Video2Card::UI
 
     AVFormatContext* inputFormatContext = nullptr;
     if (avformat_open_input(&inputFormatContext, m_CurrentVideoPath.c_str(), nullptr, nullptr) < 0) {
-        AF_ERROR("Failed to open input file for audio extraction");
-        return {};
+      AF_ERROR("Failed to open input file for audio extraction");
+      return {};
     }
 
     if (avformat_find_stream_info(inputFormatContext, nullptr) < 0) {
-        AF_ERROR("Failed to find stream info");
-        avformat_close_input(&inputFormatContext);
-        return {};
+      AF_ERROR("Failed to find stream info");
+      avformat_close_input(&inputFormatContext);
+      return {};
     }
 
     int audioStreamIndex = -1;
     for (unsigned int i = 0; i < inputFormatContext->nb_streams; i++) {
-        if (inputFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            audioStreamIndex = i;
-            break;
-        }
+      if (inputFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+        audioStreamIndex = i;
+        break;
+      }
     }
 
     if (audioStreamIndex == -1) {
-        AF_ERROR("No audio stream found");
-        avformat_close_input(&inputFormatContext);
-        return {};
+      AF_ERROR("No audio stream found");
+      avformat_close_input(&inputFormatContext);
+      return {};
     }
 
     // Transcode to MP3
@@ -610,17 +636,18 @@ namespace Video2Card::UI
     AVCodecContext* inCodecCtx = avcodec_alloc_context3(inCodec);
     avcodec_parameters_to_context(inCodecCtx, inCodecPar);
     if (avcodec_open2(inCodecCtx, inCodec, nullptr) < 0) {
-        AF_ERROR("Failed to open input codec");
-        avcodec_free_context(&inCodecCtx);
-        avformat_close_input(&inputFormatContext);
-        return {};
+      AF_ERROR("Failed to open input codec");
+      avcodec_free_context(&inCodecCtx);
+      avformat_close_input(&inputFormatContext);
+      return {};
     }
 
     // --- Setup Output (MP3) ---
     IOContext ioCtx;
     const int avio_buffer_size = 4096;
-    unsigned char* avio_buffer = (unsigned char*)av_malloc(avio_buffer_size);
-    AVIOContext* avioContext = avio_alloc_context(avio_buffer, avio_buffer_size, 1, &ioCtx, nullptr, write_packet, nullptr);
+    unsigned char* avio_buffer = (unsigned char*) av_malloc(avio_buffer_size);
+    AVIOContext* avioContext =
+        avio_alloc_context(avio_buffer, avio_buffer_size, 1, &ioCtx, nullptr, write_packet, nullptr);
 
     AVFormatContext* outputFormatContext = nullptr;
     avformat_alloc_output_context2(&outputFormatContext, nullptr, "mp3", nullptr);
@@ -634,30 +661,30 @@ namespace Video2Card::UI
     outCodecCtx->sample_rate = 44100;
     av_channel_layout_default(&outCodecCtx->ch_layout, 2);
     outCodecCtx->sample_fmt = AV_SAMPLE_FMT_FLTP;
-    outCodecCtx->time_base = (AVRational){1, outCodecCtx->sample_rate};
+    outCodecCtx->time_base = (AVRational) {1, outCodecCtx->sample_rate};
     outCodecCtx->bit_rate = 128000;
 
     if (avcodec_open2(outCodecCtx, outCodec, nullptr) < 0) {
-         AF_ERROR("Failed to open output codec");
-         avcodec_free_context(&inCodecCtx);
-         avcodec_free_context(&outCodecCtx);
-         avformat_close_input(&inputFormatContext);
-         avformat_free_context(outputFormatContext);
-         av_free(avioContext->buffer);
-         av_free(avioContext);
-         return {};
+      AF_ERROR("Failed to open output codec");
+      avcodec_free_context(&inCodecCtx);
+      avcodec_free_context(&outCodecCtx);
+      avformat_close_input(&inputFormatContext);
+      avformat_free_context(outputFormatContext);
+      av_free(avioContext->buffer);
+      av_free(avioContext);
+      return {};
     }
     avcodec_parameters_from_context(outStream->codecpar, outCodecCtx);
 
     if (avformat_write_header(outputFormatContext, nullptr) < 0) {
-        AF_ERROR("Failed to write header");
-        avcodec_free_context(&inCodecCtx);
-        avcodec_free_context(&outCodecCtx);
-        avformat_close_input(&inputFormatContext);
-        avformat_free_context(outputFormatContext);
-        av_free(avioContext->buffer);
-        av_free(avioContext);
-        return {};
+      AF_ERROR("Failed to write header");
+      avcodec_free_context(&inCodecCtx);
+      avcodec_free_context(&outCodecCtx);
+      avformat_close_input(&inputFormatContext);
+      avformat_free_context(outputFormatContext);
+      av_free(avioContext->buffer);
+      av_free(avioContext);
+      return {};
     }
 
     // --- Setup FIFO ---
@@ -670,7 +697,7 @@ namespace Video2Card::UI
     // --- Processing Loop ---
 
     // Seek
-    int64_t seekTarget = (int64_t)(start * AV_TIME_BASE);
+    int64_t seekTarget = (int64_t) (start * AV_TIME_BASE);
     av_seek_frame(inputFormatContext, -1, seekTarget, AVSEEK_FLAG_BACKWARD);
 
     AVPacket* packet = av_packet_alloc();
@@ -695,102 +722,112 @@ namespace Video2Card::UI
     int64_t pts = 0; // Track PTS manually for output
 
     while (av_read_frame(inputFormatContext, packet) >= 0 && !finished) {
-        if (packet->stream_index == audioStreamIndex) {
-            if (avcodec_send_packet(inCodecCtx, packet) == 0) {
-                while (avcodec_receive_frame(inCodecCtx, frame) == 0) {
-                    double currentTimestamp = frame->pts * av_q2d(inputFormatContext->streams[audioStreamIndex]->time_base);
+      if (packet->stream_index == audioStreamIndex) {
+        if (avcodec_send_packet(inCodecCtx, packet) == 0) {
+          while (avcodec_receive_frame(inCodecCtx, frame) == 0) {
+            double currentTimestamp = frame->pts * av_q2d(inputFormatContext->streams[audioStreamIndex]->time_base);
 
-                    if (!swrCtx) {
-                        swr_alloc_set_opts2(&swrCtx,
-                                            &outCodecCtx->ch_layout, outCodecCtx->sample_fmt, outCodecCtx->sample_rate,
-                                            &frame->ch_layout, (enum AVSampleFormat)frame->format, frame->sample_rate,
-                                            0, nullptr);
-                        swr_init(swrCtx);
-                    }
-
-                    if (currentTimestamp > end) {
-                        AF_INFO("Reached end time: {} > {}", currentTimestamp, end);
-                        finished = true;
-                        break;
-                    }
-
-                    if (currentTimestamp + (double)frame->nb_samples / frame->sample_rate >= start) {
-                        framesProcessed++;
-                        
-                        // Calculate output samples
-                        int out_samples = av_rescale_rnd(swr_get_delay(swrCtx, frame->sample_rate) +
-                                            frame->nb_samples, outCodecCtx->sample_rate, frame->sample_rate, AV_ROUND_UP);
-
-                        if (resampledFrame->nb_samples < out_samples) {
-                             av_frame_unref(resampledFrame);
-                             resampledFrame->nb_samples = out_samples;
-                             resampledFrame->format = outCodecCtx->sample_fmt;
-                             av_channel_layout_copy(&resampledFrame->ch_layout, &outCodecCtx->ch_layout);
-                             resampledFrame->sample_rate = outCodecCtx->sample_rate;
-                             av_frame_get_buffer(resampledFrame, 0);
-                        }
-
-                        // Resample
-                        int ret = swr_convert(swrCtx, resampledFrame->data, out_samples, (const uint8_t**)frame->data, frame->nb_samples);
-                        if (ret > 0) {
-                            // Add to FIFO
-                            if (av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + ret) < 0) {
-                                AF_ERROR("Failed to realloc FIFO");
-                                break;
-                            }
-                            av_audio_fifo_write(fifo, (void**)resampledFrame->data, ret);
-
-                            // Process FIFO
-                            while (av_audio_fifo_size(fifo) >= outCodecCtx->frame_size) {
-                                // Read from FIFO
-                                if (av_audio_fifo_read(fifo, (void**)fifoFrame->data, outCodecCtx->frame_size) < outCodecCtx->frame_size) {
-                                    break;
-                                }
-                                
-                                fifoFrame->pts = pts;
-                                pts += fifoFrame->nb_samples;
-
-                                if (avcodec_send_frame(outCodecCtx, fifoFrame) == 0) {
-                                    AVPacket* outPacket = av_packet_alloc();
-                                    while (avcodec_receive_packet(outCodecCtx, outPacket) == 0) {
-                                        outPacket->stream_index = 0;
-                                        av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
-                                        av_interleaved_write_frame(outputFormatContext, outPacket);
-                                        AF_DEBUG("Wrote audio packet, size: {}", outPacket->size);
-                                        av_packet_unref(outPacket);
-                                    }
-                                    av_packet_free(&outPacket);
-                                }
-                            }
-                        }
-                    }
-                }
+            if (!swrCtx) {
+              swr_alloc_set_opts2(&swrCtx,
+                                  &outCodecCtx->ch_layout,
+                                  outCodecCtx->sample_fmt,
+                                  outCodecCtx->sample_rate,
+                                  &frame->ch_layout,
+                                  (enum AVSampleFormat) frame->format,
+                                  frame->sample_rate,
+                                  0,
+                                  nullptr);
+              swr_init(swrCtx);
             }
+
+            if (currentTimestamp > end) {
+              AF_INFO("Reached end time: {} > {}", currentTimestamp, end);
+              finished = true;
+              break;
+            }
+
+            if (currentTimestamp + (double) frame->nb_samples / frame->sample_rate >= start) {
+              framesProcessed++;
+
+              // Calculate output samples
+              int out_samples = av_rescale_rnd(swr_get_delay(swrCtx, frame->sample_rate) + frame->nb_samples,
+                                               outCodecCtx->sample_rate,
+                                               frame->sample_rate,
+                                               AV_ROUND_UP);
+
+              if (resampledFrame->nb_samples < out_samples) {
+                av_frame_unref(resampledFrame);
+                resampledFrame->nb_samples = out_samples;
+                resampledFrame->format = outCodecCtx->sample_fmt;
+                av_channel_layout_copy(&resampledFrame->ch_layout, &outCodecCtx->ch_layout);
+                resampledFrame->sample_rate = outCodecCtx->sample_rate;
+                av_frame_get_buffer(resampledFrame, 0);
+              }
+
+              // Resample
+              int ret = swr_convert(
+                  swrCtx, resampledFrame->data, out_samples, (const uint8_t**) frame->data, frame->nb_samples);
+              if (ret > 0) {
+                // Add to FIFO
+                if (av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + ret) < 0) {
+                  AF_ERROR("Failed to realloc FIFO");
+                  break;
+                }
+                av_audio_fifo_write(fifo, (void**) resampledFrame->data, ret);
+
+                // Process FIFO
+                while (av_audio_fifo_size(fifo) >= outCodecCtx->frame_size) {
+                  // Read from FIFO
+                  if (av_audio_fifo_read(fifo, (void**) fifoFrame->data, outCodecCtx->frame_size) <
+                      outCodecCtx->frame_size)
+                  {
+                    break;
+                  }
+
+                  fifoFrame->pts = pts;
+                  pts += fifoFrame->nb_samples;
+
+                  if (avcodec_send_frame(outCodecCtx, fifoFrame) == 0) {
+                    AVPacket* outPacket = av_packet_alloc();
+                    while (avcodec_receive_packet(outCodecCtx, outPacket) == 0) {
+                      outPacket->stream_index = 0;
+                      av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
+                      av_interleaved_write_frame(outputFormatContext, outPacket);
+                      AF_DEBUG("Wrote audio packet, size: {}", outPacket->size);
+                      av_packet_unref(outPacket);
+                    }
+                    av_packet_free(&outPacket);
+                  }
+                }
+              }
+            }
+          }
         }
-        av_packet_unref(packet);
+      }
+      av_packet_unref(packet);
     }
-    
+
     AF_INFO("Processed {} audio frames from input", framesProcessed);
 
     // Flush remaining samples in FIFO
     int remaining = av_audio_fifo_size(fifo);
     if (remaining > 0) {
-        AF_INFO("Flushing remaining {} samples from FIFO", remaining);
-        if (av_audio_fifo_read(fifo, (void**)fifoFrame->data, remaining) == remaining) {
-             fifoFrame->nb_samples = remaining;
-             fifoFrame->pts = pts;
-             
-             if (avcodec_send_frame(outCodecCtx, fifoFrame) == 0) {
-                AVPacket* outPacket = av_packet_alloc();
-                while (avcodec_receive_packet(outCodecCtx, outPacket) == 0) {
-                    outPacket->stream_index = 0;
-                    av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
-                    av_interleaved_write_frame(outputFormatContext, outPacket);
-                    av_packet_unref(outPacket);
-                }
-                av_packet_free(&outPacket);
-             }
+      AF_INFO("Flushing remaining {} samples from FIFO", remaining);
+      if (av_audio_fifo_read(fifo, (void**) fifoFrame->data, remaining) == remaining) {
+        fifoFrame->nb_samples = remaining;
+        fifoFrame->pts = pts;
+
+        if (avcodec_send_frame(outCodecCtx, fifoFrame) == 0) {
+          AVPacket* outPacket = av_packet_alloc();
+          while (avcodec_receive_packet(outCodecCtx, outPacket) == 0) {
+            outPacket->stream_index = 0;
+            av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
+            av_interleaved_write_frame(outputFormatContext, outPacket);
+            av_packet_unref(outPacket);
+          }
+          av_packet_free(&outPacket);
         }
+      }
     }
 
     // Flush encoder
@@ -798,11 +835,11 @@ namespace Video2Card::UI
     avcodec_send_frame(outCodecCtx, nullptr);
     AVPacket* outPacket = av_packet_alloc();
     while (avcodec_receive_packet(outCodecCtx, outPacket) == 0) {
-        outPacket->stream_index = 0;
-        av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
-        av_interleaved_write_frame(outputFormatContext, outPacket);
-        AF_DEBUG("Wrote flushed audio packet, size: {}", outPacket->size);
-        av_packet_unref(outPacket);
+      outPacket->stream_index = 0;
+      av_packet_rescale_ts(outPacket, outCodecCtx->time_base, outStream->time_base);
+      av_interleaved_write_frame(outputFormatContext, outPacket);
+      AF_DEBUG("Wrote flushed audio packet, size: {}", outPacket->size);
+      av_packet_unref(outPacket);
     }
     av_packet_free(&outPacket);
 

@@ -78,9 +78,7 @@ namespace Video2Card::AI
 
   nlohmann::json XAiTextProvider::SaveConfig() const
   {
-    return {{"api_key", m_ApiKey},
-            {"sentence_model", m_SentenceModel},
-            {"available_models", m_AvailableModels}};
+    return {{"api_key", m_ApiKey}, {"sentence_model", m_SentenceModel}, {"available_models", m_AvailableModels}};
   }
 
   void XAiTextProvider::LoadRemoteModels()

@@ -1,14 +1,14 @@
 #pragma once
 
 #include <imgui.h>
-#include <mpv/client.h>
-#include <mpv/render.h>
 
 #include <functional>
 #include <memory>
+#include <mpv/client.h>
+#include <mpv/render.h>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "ui/UIComponent.h"
 #include "utils/VideoState.h"
@@ -29,16 +29,19 @@ namespace Video2Card::Language
 namespace Video2Card::UI
 {
 
-  struct SubtitleData {
-      std::string text;
-      double start = 0.0;
-      double end = 0.0;
+  struct SubtitleData
+  {
+    std::string text;
+    double start = 0.0;
+    double end = 0.0;
   };
 
   class VideoSection : public UIComponent
   {
-  public:
-    VideoSection(SDL_Renderer* renderer, Config::ConfigManager* configManager,
+public:
+
+    VideoSection(SDL_Renderer* renderer,
+                 Config::ConfigManager* configManager,
                  std::vector<std::unique_ptr<Language::ILanguage>>* languages,
                  Language::ILanguage** activeLanguage);
     ~VideoSection() override;
@@ -62,7 +65,8 @@ namespace Video2Card::UI
     std::vector<unsigned char> GetAudioClip(double start, double end);
     double GetCurrentTimestamp();
 
-  private:
+private:
+
     void InitializeMPV();
     void DestroyMPV();
     void HandleMPVEvents();
@@ -95,7 +99,7 @@ namespace Video2Card::UI
     bool m_ShouldClearVideo = false;
     double m_LastSaveTime = 0.0;
     static constexpr double SAVE_INTERVAL = 1.0;
-    
+
     double m_PendingSeekPosition = -1.0;
     bool m_FileLoadedSuccessfully = false;
   };

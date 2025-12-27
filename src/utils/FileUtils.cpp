@@ -1,7 +1,9 @@
 #include "FileUtils.h"
+
 #include <SDL3/SDL.h>
-#include <sys/stat.h>
+
 #include <cstdlib>
+#include <sys/stat.h>
 
 #ifdef _WIN32
 #include <direct.h>

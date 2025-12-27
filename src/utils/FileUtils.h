@@ -6,7 +6,8 @@ namespace Video2Card::Utils
 {
   class FileUtils
   {
-  public:
+public:
+
     /**
      * Gets the platform-specific directory for storing application preferences/config files.
      * Uses SDL_GetPrefPath internally.

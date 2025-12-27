@@ -1,10 +1,11 @@
 #include "Application.h"
 
 #include <SDL3/SDL.h>
+
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
 #include <chrono>
@@ -18,25 +19,29 @@
 #include "config/ConfigManager.h"
 #include "core/Logger.h"
 #include "core/sdl/SDLWrappers.h"
-#include "utils/FileUtils.h"
 #include "language/ILanguage.h"
 #include "language/JapaneseLanguage.h"
 #include "ui/AnkiCardSettingsSection.h"
 #include "ui/ConfigurationSection.h"
 #include "ui/StatusSection.h"
 #include "ui/VideoSection.h"
+#include "utils/FileUtils.h"
+#include "utils/LastVideoPath.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #include "IconsFontAwesome6.h"
+#include "stb_image.h"
 
 namespace Video2Card
 {
 
   Application::Application(std::string title, int width, int height)
-      : m_Title(std::move(title)), m_Width(width), m_Height(height), m_IsRunning(true), m_Window(nullptr),
-        m_Renderer(nullptr)
+      : m_Title(std::move(title))
+      , m_Width(width)
+      , m_Height(height)
+      , m_IsRunning(true)
+      , m_Window(nullptr)
+      , m_Renderer(nullptr)
   {}
 
   Application::~Application()
@@ -241,8 +246,8 @@ namespace Video2Card
       ankiUrl = "http://localhost:8765";
     m_AnkiConnectClient = std::make_unique<API::AnkiConnectClient>(ankiUrl);
 
-    m_VideoSection = std::make_unique<UI::VideoSection>(m_Renderer, m_ConfigManager.get(), &m_Languages,
-                                                        &m_ActiveLanguage);
+    m_VideoSection =
+        std::make_unique<UI::VideoSection>(m_Renderer, m_ConfigManager.get(), &m_Languages, &m_ActiveLanguage);
     m_ConfigurationSection = std::make_unique<UI::ConfigurationSection>(m_AnkiConnectClient.get(),
                                                                         m_ConfigManager.get(),
                                                                         &m_TextAIProviders,
@@ -268,6 +273,12 @@ namespace Video2Card
     });
 
     m_VideoSection->SetOnExtractCallback([this]() { OnExtract(); });
+
+    // Restore the last loaded video from previous session
+    auto lastVideoPath = Utils::LastVideoPath::Load();
+    if (lastVideoPath) {
+      m_VideoSection->LoadVideoFromFile(lastVideoPath.value());
+    }
 
     std::thread([this]() {
       if (m_AnkiConnectClient && m_AnkiConnectClient->Ping()) {
@@ -325,9 +336,9 @@ namespace Video2Card
 
       // Handle file drop
       if (event.type == SDL_EVENT_DROP_FILE) {
-          if (m_VideoSection && event.drop.data) {
-              m_VideoSection->LoadVideoFromFile(event.drop.data);
-          }
+        if (m_VideoSection && event.drop.data) {
+          m_VideoSection->LoadVideoFromFile(event.drop.data);
+        }
       }
     }
   }
@@ -441,26 +452,28 @@ namespace Video2Card
     // 2. Take current frame as image
     m_ExtractedImage = m_VideoSection->GetCurrentFrameImage();
     if (m_ExtractedImage.empty()) {
-        AF_ERROR("Failed to extract image from video.");
-        if (m_StatusSection) m_StatusSection->SetStatus("Error: Failed to extract image.");
-        return;
+      AF_ERROR("Failed to extract image from video.");
+      if (m_StatusSection)
+        m_StatusSection->SetStatus("Error: Failed to extract image.");
+      return;
     }
 
     // 3. Extract sentence from current sub
     auto subtitle = m_VideoSection->GetCurrentSubtitle();
     m_ExtractSentence = subtitle.text;
     for (auto& c : m_ExtractSentence) {
-        if (c == '\n' || c == '\r') c = ' ';
+      if (c == '\n' || c == '\r')
+        c = ' ';
     }
 
     // 4. Extract audio from specific sub
     if (subtitle.end > subtitle.start) {
-        m_ExtractedAudio = m_VideoSection->GetAudioClip(subtitle.start, subtitle.end);
+      m_ExtractedAudio = m_VideoSection->GetAudioClip(subtitle.start, subtitle.end);
     } else {
-        // Fallback if no subtitle timing, grab 5 seconds around current time?
-        // Or just don't grab audio.
-        double current = m_VideoSection->GetCurrentTimestamp();
-        m_ExtractedAudio = m_VideoSection->GetAudioClip(current, current + 5.0);
+      // Fallback if no subtitle timing, grab 5 seconds around current time?
+      // Or just don't grab audio.
+      double current = m_VideoSection->GetCurrentTimestamp();
+      m_ExtractedAudio = m_VideoSection->GetAudioClip(current, current + 5.0);
     }
 
     // 5. Show the modal
@@ -470,11 +483,11 @@ namespace Video2Card
 
     // Auto-fill Image field immediately
     if (m_AnkiCardSettingsSection) {
-        m_AnkiCardSettingsSection->SetFieldByTool(7, m_ExtractedImage, "image.webp");
+      m_AnkiCardSettingsSection->SetFieldByTool(7, m_ExtractedImage, "image.webp");
     }
 
     if (m_StatusSection)
-        m_StatusSection->SetStatus("Extraction complete. Please verify data.");
+      m_StatusSection->SetStatus("Extraction complete. Please verify data.");
   }
 
   void Application::RenderExtractModal()
@@ -511,8 +524,13 @@ namespace Video2Card
           return 0;
         };
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        return ImGui::InputTextMultiline(
-            label, (char*) str->data(), str->capacity() + 1, ImVec2(-1, 120), ImGuiInputTextFlags_CallbackResize, callback, (void*) str);
+        return ImGui::InputTextMultiline(label,
+                                         (char*) str->data(),
+                                         str->capacity() + 1,
+                                         ImVec2(-1, 120),
+                                         ImGuiInputTextFlags_CallbackResize,
+                                         callback,
+                                         (void*) str);
       };
 
       InputTextMultiline("Sentence", &m_ExtractSentence);
@@ -655,8 +673,8 @@ namespace Video2Card
             }
 
             if (!audioData.empty()) {
-                // 9: Sentence Audio
-                m_AnkiCardSettingsSection->SetFieldByTool(9, audioData, "sentence.mp3");
+              // 9: Sentence Audio
+              m_AnkiCardSettingsSection->SetFieldByTool(9, audioData, "sentence.mp3");
             }
           } else {
             AF_WARN("AnkiCardSettingsSection is null, cannot set fields.");

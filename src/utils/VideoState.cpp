@@ -1,10 +1,12 @@
 #include "VideoState.h"
-#include "FileUtils.h"
-#include "core/Logger.h"
+
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <filesystem>
-#include <cstring>
+
+#include "FileUtils.h"
+#include "core/Logger.h"
 
 namespace Video2Card::Utils
 {
@@ -160,4 +162,4 @@ namespace Video2Card::Utils
       return false;
     }
   }
-}
+} // namespace Video2Card::Utils

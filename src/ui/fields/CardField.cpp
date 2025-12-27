@@ -5,13 +5,13 @@
 
 #include <filesystem>
 #include <fstream>
+#include <webp/decode.h>
 
 #include "IconsFontAwesome6.h"
 #include "core/FieldTypes.h"
 #include "core/Logger.h"
 #include "core/sdl/SDLWrappers.h"
 #include "stb_image.h"
-#include <webp/decode.h>
 
 namespace Video2Card
 {
