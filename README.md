@@ -149,8 +149,7 @@ This is a work in progress. Here are some planned features, it is not in priorit
 
 - [ ] Github Action on release that generates binaries for Windows, macOS, and Linux.
 - [ ] Implement pitch accent generation from NJAD database
-- [ ] Add support for multiple dictionary sources
-- [ ] Add custom auto-fill fields for the user
+- [ ] Add support for multiple dictionary sources including local and online sources.
 - [ ] Improve furigana handling for edge cases
 - [ ] Audio fetching from online sources (Forvo, NHK, etc)
 

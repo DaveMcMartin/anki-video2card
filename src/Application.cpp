@@ -480,8 +480,9 @@ namespace Video2Card
       m_OpenExtractModal = false;
     }
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(600, 300), ImVec2(700, 400));
     if (ImGui::BeginPopupModal("Extract Result", &m_ShowExtractModal, ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::PushItemWidth(400.0f);
+
       auto InputText = [](const char* label, std::string* str) {
         auto callback = [](ImGuiInputTextCallbackData* data) {
           if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
@@ -506,11 +507,10 @@ namespace Video2Card
           }
           return 0;
         };
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         return ImGui::InputTextMultiline(label,
                                          (char*) str->data(),
                                          str->capacity() + 1,
-                                         ImVec2(-1, 120),
+                                         ImVec2(0, 120),
                                          ImGuiInputTextFlags_CallbackResize,
                                          callback,
                                          (void*) str);
@@ -519,15 +519,14 @@ namespace Video2Card
       InputTextMultiline("Sentence", &m_ExtractSentence);
       InputText("Target Word", &m_ExtractTargetWord);
 
+      ImGui::PopItemWidth();
       ImGui::Separator();
 
-      // Disable Process button if already processing
       bool isProcessing = m_IsProcessing.load();
       if (isProcessing) {
         ImGui::BeginDisabled();
       }
 
-      // Green tint for Process button
       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.60f, 0.20f, 1.0f));
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.75f, 0.25f, 1.0f));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.50f, 0.15f, 1.0f));
@@ -548,7 +547,6 @@ namespace Video2Card
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
 
-        // Red tint for Cancel button
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.60f, 0.20f, 0.20f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.25f, 0.25f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.50f, 0.15f, 0.15f, 1.0f));
@@ -567,7 +565,6 @@ namespace Video2Card
 
   void Application::ProcessExtract()
   {
-    // Prevent multiple simultaneous processing
     if (m_IsProcessing.load()) {
       AF_WARN("Processing already in progress, ignoring request.");
       return;
@@ -577,7 +574,6 @@ namespace Video2Card
     if (m_StatusSection)
       m_StatusSection->SetStatus("Processing extraction...");
 
-    // Capture needed data for async task
     std::string sentence = m_ExtractSentence;
     std::string targetWord = m_ExtractTargetWord;
     std::vector<unsigned char> audioData = m_ExtractedAudio;
@@ -585,7 +581,6 @@ namespace Video2Card
 
     m_IsProcessing.store(true);
 
-    // Launch processing task in background thread
     AF_INFO("Launching async processing task...");
     if (m_StatusSection)
       m_StatusSection->SetProgress(0.1f);
