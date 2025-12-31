@@ -55,3 +55,6 @@ _deps/
 
 # Local Config
 config.json
+
+# DBs
+assets/pitch_accent.db
