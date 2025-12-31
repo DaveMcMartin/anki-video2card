@@ -7,6 +7,7 @@
 #include "language/dictionary/JMDictionary.h"
 #include "language/furigana/MecabBasedFuriganaGenerator.h"
 #include "language/morphology/MecabAnalyzer.h"
+#include "language/pitch_accent/PitchAccentDatabase.h"
 #include "language/services/DeepLService.h"
 #include "language/services/ILanguageService.h"
 
@@ -18,6 +19,7 @@ namespace Video2Card::Language::Analyzer
       , m_MorphAnalyzer(nullptr)
       , m_FuriganaGen(nullptr)
       , m_DictClient(nullptr)
+      , m_PitchAccent(nullptr)
   {}
 
   void SentenceAnalyzer::SetLanguageServices(const std::vector<std::unique_ptr<Services::ILanguageService>>* services)
@@ -44,6 +46,16 @@ namespace Video2Card::Language::Analyzer
       } catch (const std::exception& e) {
         AF_WARN("Failed to initialize dictionary client: {}", e.what());
         m_DictClient = nullptr;
+      }
+
+      // Initialize pitch accent database
+      try {
+        std::string pitchDbPath = basePath + "assets/pitch_accent.db";
+        m_PitchAccent = std::make_shared<PitchAccent::PitchAccentDatabase>(pitchDbPath);
+        AF_INFO("Pitch accent database initialized");
+      } catch (const std::exception& e) {
+        AF_WARN("Failed to initialize pitch accent database: {}", e.what());
+        m_PitchAccent = nullptr;
       }
 
       return true;
@@ -129,6 +141,21 @@ namespace Video2Card::Language::Analyzer
         }
       }
 
+      // Look up pitch accent
+      std::string pitchAccent;
+      if (m_PitchAccent) {
+        try {
+          std::string lookupWord = dictionaryForm.empty() ? focusWord : dictionaryForm;
+          auto pitchEntries = m_PitchAccent->LookupWord(lookupWord, reading);
+          if (pitchEntries.empty() && !reading.empty()) {
+            pitchEntries = m_PitchAccent->LookupWord(reading, reading);
+          }
+          pitchAccent = m_PitchAccent->FormatAsHtml(pitchEntries);
+        } catch (const std::exception& e) {
+          AF_WARN("Failed to lookup pitch accent: {}", e.what());
+        }
+      }
+
       // Build the result JSON
       result["sentence"] = sentence;
       result["translation"] = translation;
@@ -136,7 +163,7 @@ namespace Video2Card::Language::Analyzer
       result["target_word_furigana"] = targetWordFurigana;
       result["furigana"] = sentenceWithFurigana;
       result["definition"] = definition;
-      result["pitch_accent"] = ""; // Not implemented yet
+      result["pitch_accent"] = pitchAccent;
 
       AF_DEBUG("Analysis complete for sentence: {}", sentence);
 

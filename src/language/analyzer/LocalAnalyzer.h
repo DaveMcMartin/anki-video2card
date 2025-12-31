@@ -7,6 +7,7 @@
 #include "language/dictionary/IDictionaryClient.h"
 #include "language/furigana/IFuriganaGenerator.h"
 #include "language/morphology/IMorphologicalAnalyzer.h"
+#include "language/pitch_accent/IPitchAccentLookup.h"
 #include "language/translation/ITranslator.h"
 
 namespace Video2Card::Language::Analyzer
@@ -15,6 +16,7 @@ namespace Video2Card::Language::Analyzer
   using Dictionary::IDictionaryClient;
   using Furigana::IFuriganaGenerator;
   using Morphology::IMorphologicalAnalyzer;
+  using PitchAccent::IPitchAccentLookup;
   using Translation::ITranslator;
 
   /**
@@ -36,7 +38,8 @@ public:
     LocalAnalyzer(std::shared_ptr<IMorphologicalAnalyzer> morphAnalyzer,
                   std::shared_ptr<IFuriganaGenerator> furiganaGen,
                   std::shared_ptr<IDictionaryClient> dictClient,
-                  std::shared_ptr<ITranslator> translator = nullptr);
+                  std::shared_ptr<ITranslator> translator = nullptr,
+                  std::shared_ptr<IPitchAccentLookup> pitchAccent = nullptr);
 
     ~LocalAnalyzer() override = default;
 
@@ -67,6 +70,7 @@ private:
     std::shared_ptr<IFuriganaGenerator> m_FuriganaGen;
     std::shared_ptr<IDictionaryClient> m_DictClient;
     std::shared_ptr<ITranslator> m_Translator;
+    std::shared_ptr<IPitchAccentLookup> m_PitchAccent;
 
     /**
    * Select the target word if not provided.

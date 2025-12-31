@@ -700,7 +700,7 @@ namespace Video2Card
 
             if (!audioData.empty()) {
               // 9: Sentence Audio
-              m_AnkiCardSettingsSection->SetFieldByTool(9, audioData, "sentence.mp3");
+              m_AnkiCardSettingsSection->SetFieldByTool(9, audioData, "sentence.ogg");
             }
           } else {
             AF_WARN("AnkiCardSettingsSection is null, cannot set fields.");

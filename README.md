@@ -10,14 +10,15 @@ Anki Video2Card is a modern C++23 cross-platform desktop application designed to
 - **Video Player**: Integrated high-performance video player based on **libmpv**.
 - **Smart Extraction**:
   - **Snapshot**: Instantly captures the current video frame as the card image.
-  - **Audio**: Extracts audio clips corresponding to the current subtitle or timestamp using **FFmpeg**.
+  - **Audio**: Extracts audio clips in OGG/Vorbis format corresponding to the current subtitle or timestamp using **FFmpeg**.
   - **Subtitles**: Automatically extracts the current subtitle text.
 - **Local Text Analysis**:
   - **Morphological Analysis**: Uses Mecab for accurate word segmentation and dictionary forms.
   - **Furigana Generation**: Automatically generates ruby text annotations for kanji.
-  - **Dictionary Lookups**: Integrates with Sakura-Paris for word definitions.
+  - **Dictionary Lookups**: Local JMDict dictionary for word definitions.
+  - **Pitch Accent**: Automatically looks up and displays Japanese pitch accent patterns using NJAD database.
 - **Anki Integration**: Connects directly to Anki via AnkiConnect to create cards automatically.
-- **Smart Fields**: Automatically detects and fills fields like Sentence, Target Word, Furigana, and Definitions.
+- **Smart Fields**: Automatically detects and fills fields like Sentence, Target Word, Furigana, Pitch Accent, and Definitions.
 
 ## Screenshots
 
@@ -107,7 +108,7 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 ## Usage
 
 1. **Configuration**:
-   - Go to the "Configuration" tab.
+   - Go to the "AnkiConfiguration" tab.
    - Set up your AnkiConnect URL (default is usually `http://localhost:8765`).
    - On the Card tab, select the Note Type, deck, and fields you want to fill.
 
@@ -126,18 +127,16 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 1. **Which Note Type do you use?**
    The "Japanese Sentence" note type from the Ankidrone Foundation deck is recommended, but you can map fields to any note type.
 
-2. **Why local analysis instead of AI?**
-   Local analysis using Mecab and dictionary services provides fast, reliable, and free Japanese language processing without API dependencies or costs.
-
 ## Dependencies
 
 - **SDL3**: Cross-platform graphics and input handling.
 - **ImGui**: Immediate-mode GUI framework with docking support.
 - **nlohmann/json**: Modern JSON library for C++.
 - **cpp-httplib**: Lightweight HTTP client library.
-- **FFmpeg**: Video and audio processing library.
+- **FFmpeg**: Video and audio processing library (with Vorbis codec support).
 - **libmpv**: Media player library.
 - **Mecab**: Japanese morphological analyzer.
+- **SQLite3**: Database engine for dictionary and pitch accent lookups.
 
 ## License
 
@@ -148,10 +147,10 @@ This project is licensed under the GNU General Public License v3.0 (GPLv3). See 
 This is a work in progress. Here are some planned features, it is not in priority order:
 
 - [ ] Github Action on release that generates binaries for Windows, macOS, and Linux.
-- [ ] Implement pitch accent generation from NJAD database
-- [ ] Add support for multiple dictionary sources including local and online sources.
+- [x] Implement pitch accent generation from NJAD database
+- [x] Add support for multiple dictionary sources including local and online sources
 - [ ] Improve furigana handling for edge cases
-- [ ] Audio fetching from online sources (Forvo, NHK, etc)
+- [x] Audio fetching from online sources (Forvo, NHK, etc)
 
 ## Contributing
 

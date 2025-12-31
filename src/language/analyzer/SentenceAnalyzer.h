@@ -35,6 +35,11 @@ namespace Video2Card::Language::Translation
   class ITranslator;
 }
 
+namespace Video2Card::Language::PitchAccent
+{
+  class IPitchAccentLookup;
+}
+
 namespace Video2Card::Language::Analyzer
 {
 
@@ -112,6 +117,7 @@ private:
     std::shared_ptr<Morphology::IMorphologicalAnalyzer> m_MorphAnalyzer;
     std::shared_ptr<Furigana::IFuriganaGenerator> m_FuriganaGen;
     std::shared_ptr<Dictionary::IDictionaryClient> m_DictClient;
+    std::shared_ptr<PitchAccent::IPitchAccentLookup> m_PitchAccent;
   };
 
 } // namespace Video2Card::Language::Analyzer

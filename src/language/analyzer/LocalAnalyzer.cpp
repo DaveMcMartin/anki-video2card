@@ -14,16 +14,17 @@ namespace Video2Card::Language::Analyzer
   LocalAnalyzer::LocalAnalyzer(std::shared_ptr<IMorphologicalAnalyzer> morphAnalyzer,
                                std::shared_ptr<IFuriganaGenerator> furiganaGen,
                                std::shared_ptr<IDictionaryClient> dictClient,
-                               std::shared_ptr<ITranslator> translator)
+                               std::shared_ptr<ITranslator> translator,
+                               std::shared_ptr<IPitchAccentLookup> pitchAccent)
       : m_MorphAnalyzer(std::move(morphAnalyzer))
       , m_FuriganaGen(std::move(furiganaGen))
       , m_DictClient(std::move(dictClient))
       , m_Translator(std::move(translator))
+      , m_PitchAccent(std::move(pitchAccent))
   {
     if (!m_MorphAnalyzer) {
       throw std::invalid_argument("Morphological analyzer is required");
     }
-    // Furigana, dictionary, and translator are optional
     AF_INFO("LocalAnalyzer initialized successfully");
   }
 
@@ -80,14 +81,23 @@ namespace Video2Card::Language::Analyzer
         }
       }
 
-      // Build the result JSON
+      std::string pitchAccent;
+      if (m_PitchAccent) {
+        std::string lookupWord = dictionaryForm.empty() ? focusWord : dictionaryForm;
+        auto pitchEntries = m_PitchAccent->LookupWord(lookupWord, reading);
+        if (pitchEntries.empty() && !reading.empty()) {
+          pitchEntries = m_PitchAccent->LookupWord(reading, reading);
+        }
+        pitchAccent = m_PitchAccent->FormatAsHtml(pitchEntries);
+      }
+
       result["sentence"] = sentence;
       result["translation"] = translation;
       result["target_word"] = dictionaryForm.empty() ? focusWord : dictionaryForm;
       result["target_word_furigana"] = targetWordFurigana;
       result["furigana"] = sentenceWithFurigana;
       result["definition"] = definition;
-      result["pitch_accent"] = ""; // Pitch accent not available in this version
+      result["pitch_accent"] = pitchAccent;
 
       AF_DEBUG("Analysis complete for sentence: {}", sentence);
 

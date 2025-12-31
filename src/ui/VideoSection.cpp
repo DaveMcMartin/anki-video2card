@@ -628,7 +628,7 @@ namespace Video2Card::UI
       return {};
     }
 
-    // Transcode to MP3
+    // Transcode to OGG/Vorbis
 
     // --- Setup Input Decoder ---
     AVCodecParameters* inCodecPar = inputFormatContext->streams[audioStreamIndex]->codecpar;
@@ -642,7 +642,7 @@ namespace Video2Card::UI
       return {};
     }
 
-    // --- Setup Output (MP3) ---
+    // --- Setup Output (OGG/Vorbis) ---
     IOContext ioCtx;
     const int avio_buffer_size = 4096;
     unsigned char* avio_buffer = (unsigned char*) av_malloc(avio_buffer_size);
@@ -650,10 +650,10 @@ namespace Video2Card::UI
         avio_alloc_context(avio_buffer, avio_buffer_size, 1, &ioCtx, nullptr, write_packet, nullptr);
 
     AVFormatContext* outputFormatContext = nullptr;
-    avformat_alloc_output_context2(&outputFormatContext, nullptr, "mp3", nullptr);
+    avformat_alloc_output_context2(&outputFormatContext, nullptr, "ogg", nullptr);
     outputFormatContext->pb = avioContext;
 
-    const AVCodec* outCodec = avcodec_find_encoder(AV_CODEC_ID_MP3);
+    const AVCodec* outCodec = avcodec_find_encoder(AV_CODEC_ID_VORBIS);
     AVStream* outStream = avformat_new_stream(outputFormatContext, outCodec);
     AVCodecContext* outCodecCtx = avcodec_alloc_context3(outCodec);
 
