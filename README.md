@@ -68,26 +68,36 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
    cd anki-video2card
    ```
 
-2. **Create a build directory**:
+2. **Setup pitch accent database** (optional but recommended):
+
+   The application includes pitch accent support. To enable it, generate the SQLite database from the included CSV files:
+
+   ```bash
+   python3 scripts/convert_pitch_accent.py
+   ```
+
+   This will create `assets/pitch_accent.db` from the CSV files in the assets folder. If you skip this step, the application will work without pitch accent support.
+
+3. **Create a build directory**:
 
    ```bash
    mkdir build
    cd build
    ```
 
-3. **Configure the project**:
+4. **Configure the project**:
 
    ```bash
    cmake ..
    ```
 
-4. **Build**:
+5. **Build**:
 
    ```bash
    cmake --build .
    ```
 
-5. **Run**:
+6. **Run**:
    - **macOS**: `./bin/Anki\ Video2Card.app/Contents/MacOS/Anki\ Video2Card`
    - **Linux**: `./bin/Anki\ Video2Card`
    - **Windows**: `bin\Anki Video2Card.exe`
