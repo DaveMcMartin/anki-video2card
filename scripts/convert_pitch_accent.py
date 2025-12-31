@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""
-Convert pitch accent CSV files to SQLite database.
-
-This script converts pitch accent data from the AJT Japanese Anki add-on
-(CSV format) into an SQLite database for use with Anki Video2Card.
-
-The pitch accent data comes from NJAD (NHK Japanese Accent Dictionary) and Kanjium.
-
-Usage:
-    1. Copy CSV files from AJT Japanese add-on:
-       cp ~/Library/Application Support/Anki2/addons21/1344485230/pitch_accents/res/pitch_accents_formatted.*.csv assets/
-
-    2. Run this script:
-       python3 scripts/convert_pitch_accent.py
-
-    The generated database will be saved to assets/pitch_accent.db
-"""
 
 import csv
 import os

@@ -640,11 +640,12 @@ namespace Video2Card
                              definition,
                              pitch,
                              imageData,
-                             audioData]() {
+                             audioData,
+                             targetWord]() {
           if (m_AnkiCardSettingsSection) {
             AF_INFO("Setting fields in Anki Card Settings...");
-            std::string highlightedSentence = HighlightTargetWord(analyzedSentence, analyzedTargetWord);
-            std::string highlightedFurigana = HighlightTargetWord(furigana, analyzedTargetWord);
+            std::string highlightedSentence = HighlightTargetWord(analyzedSentence, targetWord);
+            std::string highlightedFurigana = HighlightTargetWord(furigana, targetWord);
             m_AnkiCardSettingsSection->SetFieldByTool(0, highlightedSentence);
             m_AnkiCardSettingsSection->SetFieldByTool(1, highlightedFurigana);
             m_AnkiCardSettingsSection->SetFieldByTool(2, translation);
@@ -762,22 +763,71 @@ namespace Video2Card
 
   std::string Application::HighlightTargetWord(const std::string& text, const std::string& targetWord)
   {
+    AF_DEBUG("HighlightTargetWord - text='{}', targetWord='{}'", text, targetWord);
+
     if (targetWord.empty() || text.empty()) {
       return text;
     }
 
-    std::string result = text;
+    std::string textWithoutFurigana = text;
     size_t pos = 0;
-
-    while ((pos = result.find(targetWord, pos)) != std::string::npos) {
-      result.insert(pos, "<b style=\"color: #00FF00\">");
-      pos += std::string("<b style=\"color: #00FF00\">").length();
-
-      pos = result.find(targetWord, pos) + targetWord.length();
-      result.insert(pos, "</b>");
-      pos += std::string("</b>").length();
+    while ((pos = textWithoutFurigana.find('[', pos)) != std::string::npos) {
+      size_t endPos = textWithoutFurigana.find(']', pos);
+      if (endPos != std::string::npos) {
+        textWithoutFurigana.erase(pos, endPos - pos + 1);
+      } else {
+        break;
+      }
     }
 
+    AF_DEBUG("HighlightTargetWord - textWithoutFurigana='{}'", textWithoutFurigana);
+
+    pos = textWithoutFurigana.find(targetWord);
+    AF_DEBUG("HighlightTargetWord - found targetWord at pos={}", pos);
+
+    if (pos == std::string::npos) {
+      AF_DEBUG("HighlightTargetWord - targetWord not found, returning original text");
+      return text;
+    }
+
+    size_t actualPos = 0;
+    size_t charCount = 0;
+    size_t startPos = std::string::npos;
+    size_t endPos = std::string::npos;
+    bool inBracket = false;
+
+    for (size_t i = 0; i < text.length(); i++) {
+      if (text[i] == '[') {
+        inBracket = true;
+        continue;
+      }
+      if (text[i] == ']') {
+        inBracket = false;
+        continue;
+      }
+      if (!inBracket) {
+        if (charCount == pos) {
+          startPos = i;
+        }
+        charCount++;
+        if (charCount == pos + targetWord.length()) {
+          endPos = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (startPos == std::string::npos || endPos == std::string::npos) {
+      return text;
+    }
+
+    std::string result = text.substr(0, startPos);
+    result += "<b style=\"color: #00FF00\">";
+    result += text.substr(startPos, endPos - startPos);
+    result += "</b>";
+    result += text.substr(endPos);
+
+    AF_DEBUG("HighlightTargetWord - result='{}'", result);
     return result;
   }
 
