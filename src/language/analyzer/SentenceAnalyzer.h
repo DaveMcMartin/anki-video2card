@@ -58,9 +58,10 @@ public:
 
     /**
    * Initialize the analyzer with MeCab and other components.
+   * @param basePath Base path for assets (database, etc.)
    * @return true if initialization succeeded
    */
-    bool Initialize();
+    bool Initialize(const std::string& basePath = "");
 
     /**
    * Analyze a Japanese sentence.

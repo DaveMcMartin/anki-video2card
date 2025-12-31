@@ -9,6 +9,7 @@
 #include <imgui_stdlib.h>
 
 #include <chrono>
+#include <httplib.h>
 #include <iostream>
 #include <thread>
 
@@ -19,6 +20,7 @@
 #include "language/ILanguage.h"
 #include "language/JapaneseLanguage.h"
 #include "language/analyzer/SentenceAnalyzer.h"
+#include "language/audio/ForvoClient.h"
 #include "language/services/DeepLService.h"
 #include "ui/AnkiCardSettingsSection.h"
 #include "ui/ConfigurationSection.h"
@@ -220,11 +222,14 @@ namespace Video2Card
     // Initialize sentence analyzer
     m_SentenceAnalyzer = std::make_unique<Language::Analyzer::SentenceAnalyzer>();
     m_SentenceAnalyzer->SetLanguageServices(&m_LanguageServices);
-    if (m_SentenceAnalyzer->Initialize()) {
+    if (m_SentenceAnalyzer->Initialize(m_BasePath)) {
       AF_INFO("Sentence analyzer initialized successfully");
     } else {
       AF_ERROR("Failed to initialize sentence analyzer");
     }
+
+    m_ForvoClient = std::make_unique<Language::Audio::ForvoClient>("ja", 10, 1);
+    AF_INFO("Forvo audio client initialized");
 
     std::string ankiUrl = m_ConfigManager->GetConfig().AnkiConnectUrl;
     if (ankiUrl.empty())
@@ -650,6 +655,47 @@ namespace Video2Card
 
             if (!imageData.empty()) {
               m_AnkiCardSettingsSection->SetFieldByTool(7, imageData, "image.webp");
+            }
+
+            if (m_ForvoClient && !analyzedTargetWord.empty()) {
+              AF_INFO("Searching Forvo for vocab audio: {}", analyzedTargetWord);
+              auto audioResults = m_ForvoClient->SearchAudio(analyzedTargetWord, analyzedTargetWord, "");
+
+              if (!audioResults.empty()) {
+                try {
+                  httplib::SSLClient cli("forvo.com");
+                  cli.set_connection_timeout(10, 0);
+                  cli.set_read_timeout(10, 0);
+
+                  std::string audioUrl = audioResults[0].url;
+                  if (audioUrl.find("https://") == 0) {
+                    audioUrl = audioUrl.substr(8);
+                  }
+
+                  size_t slashPos = audioUrl.find('/');
+                  if (slashPos != std::string::npos) {
+                    std::string host = audioUrl.substr(0, slashPos);
+                    std::string path = audioUrl.substr(slashPos);
+
+                    httplib::SSLClient audioClient(host.c_str());
+                    audioClient.set_connection_timeout(10, 0);
+                    audioClient.set_read_timeout(10, 0);
+
+                    auto res = audioClient.Get(path.c_str());
+                    if (res && res->status == 200) {
+                      std::vector<unsigned char> vocabAudioData(res->body.begin(), res->body.end());
+                      m_AnkiCardSettingsSection->SetFieldByTool(8, vocabAudioData, audioResults[0].filename);
+                      AF_INFO("Downloaded vocab audio: {} ({} bytes)", audioResults[0].filename, vocabAudioData.size());
+                    } else {
+                      AF_WARN("Failed to download vocab audio from: {}", audioUrl);
+                    }
+                  }
+                } catch (const std::exception& e) {
+                  AF_ERROR("Failed to download vocab audio: {}", e.what());
+                }
+              } else {
+                AF_INFO("No vocab audio found on Forvo for: {}", analyzedTargetWord);
+              }
             }
 
             if (!audioData.empty()) {

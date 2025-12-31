@@ -82,6 +82,13 @@ private:
     [[nodiscard]] std::string FetchWordPage(const std::string& word) const;
 
     /**
+   * Fetch the search page from Forvo (fallback when word page fails).
+   * @param word The word to search for
+   * @return HTML content of the page
+   */
+    [[nodiscard]] std::string FetchSearchPage(const std::string& word) const;
+
+    /**
    * Parse Forvo HTML page and extract audio URLs.
    * @param html The HTML content
    * @param word The original word being searched
@@ -95,7 +102,7 @@ private:
    * @param encodedData The encoded audio data
    * @return Decoded audio URL
    */
-    [[nodiscard]] static std::string DecodeAudioUrl(const std::string& encodedData);
+    [[nodiscard]] std::string DecodeAudioUrl(const std::string& encodedData) const;
 
     /**
    * Filter and sort results based on preferences.
@@ -111,7 +118,10 @@ private:
    * @param index Sequential index
    * @return Filename like "word_forvo_user_1.mp3"
    */
-    [[nodiscard]] std::string GenerateFilename(const std::string& word, const std::string& username, int index) const;
+    [[nodiscard]] std::string GenerateFilename(const std::string& word,
+                                               const std::string& username,
+                                               int index,
+                                               const std::string& extension) const;
 
     std::string m_Language;
     int m_TimeoutSeconds;

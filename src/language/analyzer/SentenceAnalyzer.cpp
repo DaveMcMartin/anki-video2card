@@ -4,7 +4,7 @@
 
 #include "core/Logger.h"
 #include "language/ILanguage.h"
-#include "language/dictionary/SakuraParisClient.h"
+#include "language/dictionary/JMDictionary.h"
 #include "language/furigana/MecabBasedFuriganaGenerator.h"
 #include "language/morphology/MecabAnalyzer.h"
 #include "language/services/DeepLService.h"
@@ -25,7 +25,7 @@ namespace Video2Card::Language::Analyzer
     m_LanguageServices = services;
   }
 
-  bool SentenceAnalyzer::Initialize()
+  bool SentenceAnalyzer::Initialize(const std::string& basePath)
   {
     try {
       // Initialize MeCab analyzer
@@ -38,8 +38,8 @@ namespace Video2Card::Language::Analyzer
 
       // Initialize dictionary client
       try {
-        m_DictClient =
-            std::make_shared<Dictionary::SakuraParisClient>(Dictionary::SakuraParisClient::Dictionary::Daijirin);
+        std::string dbPath = basePath + "assets/jmdict.db";
+        m_DictClient = std::make_shared<Dictionary::JMDictionary>(dbPath);
         AF_INFO("Dictionary client initialized");
       } catch (const std::exception& e) {
         AF_WARN("Failed to initialize dictionary client: {}", e.what());

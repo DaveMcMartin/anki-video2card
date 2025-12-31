@@ -40,6 +40,11 @@ namespace Video2Card::Language::Analyzer
   class SentenceAnalyzer;
 }
 
+namespace Video2Card::Language::Audio
+{
+  class ForvoClient;
+}
+
 namespace Video2Card::Config
 {
   class ConfigManager;
@@ -102,6 +107,7 @@ private:
 
     std::vector<std::unique_ptr<Language::Services::ILanguageService>> m_LanguageServices;
     std::unique_ptr<Language::Analyzer::SentenceAnalyzer> m_SentenceAnalyzer;
+    std::unique_ptr<Language::Audio::ForvoClient> m_ForvoClient;
 
     std::vector<std::unique_ptr<Language::ILanguage>> m_Languages;
     Language::ILanguage* m_ActiveLanguage = nullptr;

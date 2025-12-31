@@ -1,12 +1,15 @@
 #include "ForvoClient.h"
 
 #include <algorithm>
+#include <chrono>
 #include <exception>
 #include <httplib.h>
 #include <regex>
 #include <sstream>
+#include <thread>
 
 #include "core/Logger.h"
+#include "utils/Base64Utils.h"
 
 namespace Video2Card::Language::Audio
 {
@@ -18,7 +21,7 @@ namespace Video2Card::Language::Audio
       , m_AudioFormat("mp3")
       , m_BaseUrl("https://forvo.com")
   {
-    AF_INFO("ForvoClient initialized for language: {}", m_Language);
+    AF_INFO("ForvoClient initialized for language: {} (format: {})", m_Language, m_AudioFormat);
   }
 
   std::vector<AudioFileInfo>
@@ -35,6 +38,11 @@ namespace Video2Card::Language::Audio
     try {
       AF_DEBUG("Searching Forvo for: {}", searchWord);
       std::string html = FetchWordPage(searchWord);
+
+      if (html.empty()) {
+        AF_DEBUG("ForvoClient: word page empty, trying search page for '{}'", searchWord);
+        html = FetchSearchPage(searchWord);
+      }
 
       if (html.empty()) {
         AF_WARN("ForvoClient: no content returned for word '{}'", searchWord);
@@ -92,65 +100,198 @@ namespace Video2Card::Language::Audio
 
   std::string ForvoClient::FetchWordPage(const std::string& word) const
   {
-    try {
-      httplib::SSLClient cli("forvo.com");
-      cli.set_connection_timeout(m_TimeoutSeconds, 0);
-      cli.set_read_timeout(m_TimeoutSeconds, 0);
-      cli.set_follow_location(true);
+    const int maxRetries = 3;
 
-      std::string path = "/word/" + word + "/";
-      if (m_Language != "ja") {
-        path += "#" + m_Language;
-      }
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      try {
+        if (attempt > 0) {
+          int backoffMs = 500 * (1 << (attempt - 1));
+          AF_DEBUG("ForvoClient: Retry attempt {} after {}ms backoff", attempt, backoffMs);
+          std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
+        }
 
-      auto res = cli.Get(path.c_str());
+        httplib::SSLClient cli("forvo.com");
+        cli.set_connection_timeout(m_TimeoutSeconds, 0);
+        cli.set_read_timeout(m_TimeoutSeconds, 0);
+        cli.set_follow_location(true);
 
-      if (!res) {
-        AF_WARN("ForvoClient: HTTP request failed for word '{}'", word);
+        httplib::Headers headers = {
+            {"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:139.0) Gecko/20100101 Firefox/139.0"},
+            {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"},
+            {"Accept-Language", "en-US,en;q=0.5"},
+            {"DNT", "1"},
+            {"Connection", "keep-alive"},
+            {"Upgrade-Insecure-Requests", "1"},
+            {"Sec-Fetch-Dest", "document"},
+            {"Sec-Fetch-Mode", "navigate"},
+            {"Sec-Fetch-Site", "none"},
+            {"Sec-Fetch-User", "?1"}};
+
+        std::string path = "/word/" + word + "/";
+        if (m_Language != "ja") {
+          path += "#" + m_Language;
+        }
+
+        auto res = cli.Get(path.c_str(), headers);
+
+        if (!res) {
+          AF_WARN("ForvoClient: HTTP request failed for word '{}'", word);
+          if (attempt < maxRetries - 1)
+            continue;
+          return "";
+        }
+
+        if (res->status == 403 && attempt < maxRetries - 1) {
+          AF_DEBUG("ForvoClient: Got 403, will retry for word '{}'", word);
+          continue;
+        }
+
+        if (res->status != 200) {
+          AF_WARN("ForvoClient: HTTP status {} for word '{}'", res->status, word);
+          return "";
+        }
+
+        return res->body;
+
+      } catch (const std::exception& e) {
+        AF_ERROR("ForvoClient: exception while fetching '{}': {}", word, e.what());
+        if (attempt < maxRetries - 1)
+          continue;
         return "";
       }
-
-      if (res->status != 200) {
-        AF_WARN("ForvoClient: HTTP status {} for word '{}'", res->status, word);
-        return "";
-      }
-
-      return res->body;
-
-    } catch (const std::exception& e) {
-      AF_ERROR("ForvoClient: exception while fetching '{}': {}", word, e.what());
-      return "";
     }
+
+    return "";
+  }
+
+  std::string ForvoClient::FetchSearchPage(const std::string& word) const
+  {
+    const int maxRetries = 3;
+
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      try {
+        if (attempt > 0) {
+          int backoffMs = 500 * (1 << (attempt - 1));
+          AF_DEBUG("ForvoClient: Search retry attempt {} after {}ms backoff", attempt, backoffMs);
+          std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
+        }
+
+        httplib::SSLClient cli("forvo.com");
+        cli.set_connection_timeout(m_TimeoutSeconds, 0);
+        cli.set_read_timeout(m_TimeoutSeconds, 0);
+        cli.set_follow_location(true);
+
+        httplib::Headers headers = {
+            {"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:139.0) Gecko/20100101 Firefox/139.0"},
+            {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"},
+            {"Accept-Language", "en-US,en;q=0.5"},
+            {"DNT", "1"},
+            {"Connection", "keep-alive"},
+            {"Upgrade-Insecure-Requests", "1"},
+            {"Sec-Fetch-Dest", "document"},
+            {"Sec-Fetch-Mode", "navigate"},
+            {"Sec-Fetch-Site", "none"},
+            {"Sec-Fetch-User", "?1"}};
+
+        std::string path = "/search/" + word + "/" + m_Language + "/";
+
+        auto res = cli.Get(path.c_str(), headers);
+
+        if (!res) {
+          AF_WARN("ForvoClient: Search HTTP request failed for word '{}'", word);
+          if (attempt < maxRetries - 1)
+            continue;
+          return "";
+        }
+
+        if (res->status == 403 && attempt < maxRetries - 1) {
+          AF_DEBUG("ForvoClient: Search got 403, will retry for word '{}'", word);
+          continue;
+        }
+
+        if (res->status != 200) {
+          AF_WARN("ForvoClient: Search HTTP status {} for word '{}'", res->status, word);
+          return "";
+        }
+
+        return res->body;
+
+      } catch (const std::exception& e) {
+        AF_ERROR("ForvoClient: exception while fetching search for '{}': {}", word, e.what());
+        if (attempt < maxRetries - 1)
+          continue;
+        return "";
+      }
+    }
+
+    return "";
   }
 
   std::vector<AudioFileInfo> ForvoClient::ParseAudioLinks(const std::string& html, const std::string& word) const
   {
     std::vector<AudioFileInfo> results;
 
-    // Forvo uses different patterns to embed audio URLs
-    // Pattern 1: Look for Play() function calls with base64 encoded data
-    std::regex playRegex(R"(Play\(\d+,\s*'([^']+)',\s*'([^']+)',\s*[^,]+,\s*'([^']+)')");
-
-    // Pattern 2: Look for direct MP3/OGG URLs in the HTML
-    std::regex directUrlRegex(R"(https?://[^\"'\s]+\.(?:mp3|ogg))");
+    std::regex playRegex(
+        R"(Play\(\d+,\s*'([^']+)',\s*'([^']+)',\s*(?:false|true),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)')");
 
     std::smatch match;
     std::string::const_iterator searchStart(html.cbegin());
     int index = 0;
 
-    // Try pattern 1 - Play() function calls
     while (std::regex_search(searchStart, html.cend(), match, playRegex) && index < m_MaxResults) {
       try {
-        std::string encodedUrl = match[1].str();
-        std::string username = match[3].str();
+        std::string rawMp3Arg = match[1].str();
+        std::string rawOggArg = match[2].str();
+        std::string normalizedMp3Arg = match[4].str();
+        std::string normalizedOggArg = match[5].str();
+
+        AF_DEBUG("ForvoClient: rawMp3={}, rawOgg={}, normMp3={}, normOgg={}",
+                 rawMp3Arg,
+                 rawOggArg,
+                 normalizedMp3Arg,
+                 normalizedOggArg);
+
+        std::string encodedUrl;
+        if (m_AudioFormat == "mp3") {
+          encodedUrl = normalizedMp3Arg.empty() ? rawMp3Arg : normalizedMp3Arg;
+        } else {
+          encodedUrl = normalizedOggArg.empty() ? rawOggArg : normalizedOggArg;
+        }
 
         std::string audioUrl = DecodeAudioUrl(encodedUrl);
 
         if (!audioUrl.empty()) {
+          AF_DEBUG("ForvoClient: decoded URL={}", audioUrl);
+
+          std::string username = "unknown";
+          size_t matchPos = std::distance(html.cbegin(), searchStart);
+
+          if (matchPos > 200) {
+            std::string contextBefore(html.begin() + (matchPos - 200), searchStart);
+            std::regex usernameRegex(R"(Pronunciation\s+by\s*<[^>]*>([^<]+)<)");
+            std::smatch usernameMatch;
+
+            if (std::regex_search(contextBefore, usernameMatch, usernameRegex)) {
+              username = usernameMatch[1].str();
+              username.erase(0, username.find_first_not_of(" \t\n\r"));
+              username.erase(username.find_last_not_of(" \t\n\r") + 1);
+              AF_DEBUG("ForvoClient: extracted username={}", username);
+            }
+          }
+
+          std::string fileExt = "mp3";
+          size_t dotPos = audioUrl.rfind('.');
+          if (dotPos != std::string::npos && dotPos < audioUrl.length() - 1) {
+            fileExt = audioUrl.substr(dotPos + 1);
+            if (fileExt.length() > 4) {
+              fileExt = "mp3";
+            }
+          }
+
           AudioFileInfo info;
           info.word = word;
           info.url = audioUrl;
-          info.filename = GenerateFilename(word, username, index);
+          info.filename = GenerateFilename(word, username, index, fileExt);
           info.sourceName = "Forvo (" + username + ")";
           info.reading = "";
           info.pitchAccent = 0;
@@ -165,53 +306,38 @@ namespace Video2Card::Language::Audio
       searchStart = match.suffix().first;
     }
 
-    // Try pattern 2 - Direct URLs (fallback)
-    if (results.empty()) {
-      searchStart = html.cbegin();
-      while (std::regex_search(searchStart, html.cend(), match, directUrlRegex) && index < m_MaxResults) {
-        std::string audioUrl = match[0].str();
-
-        // Filter to only include forvo.com URLs
-        if (audioUrl.find("forvo.com") != std::string::npos) {
-          AudioFileInfo info;
-          info.word = word;
-          info.url = audioUrl;
-          info.filename = GenerateFilename(word, "forvo", index);
-          info.sourceName = "Forvo";
-          info.reading = "";
-          info.pitchAccent = 0;
-
-          results.push_back(info);
-          index++;
-        }
-
-        searchStart = match.suffix().first;
-      }
-    }
-
     return results;
   }
 
-  std::string ForvoClient::DecodeAudioUrl(const std::string& encodedData)
+  std::string ForvoClient::DecodeAudioUrl(const std::string& encodedData) const
   {
-    // Forvo uses base64 encoding for audio URLs
-    // This is a simplified decoder - in practice, you might need a proper base64 library
+    if (encodedData.empty()) {
+      return "";
+    }
 
-    // For now, check if it looks like a URL already
     if (encodedData.find("http") == 0) {
       return encodedData;
     }
 
-    // If it's base64, we'd need to decode it
-    // Since we don't have a base64 decoder readily available,
-    // we'll return the encoded data and let the caller handle it
-    // In a production implementation, use a proper base64 library
+    try {
+      auto decoded = Video2Card::Utils::Base64Utils::Decode(encodedData);
+      std::string decodedStr(decoded.begin(), decoded.end());
 
-    // Simple heuristic: if it contains common URL patterns, use it as-is
-    if (encodedData.find("audio") != std::string::npos || encodedData.find(".mp3") != std::string::npos ||
-        encodedData.find(".ogg") != std::string::npos)
-    {
-      return encodedData;
+      if (decodedStr.find("/") != std::string::npos) {
+        std::string fileExt;
+        size_t dotPos = decodedStr.rfind('.');
+        if (dotPos != std::string::npos) {
+          fileExt = decodedStr.substr(dotPos + 1);
+        } else {
+          fileExt = m_AudioFormat;
+        }
+
+        std::string fullUrl = "https://audio12.forvo.com/audios/" + fileExt + "/" + decodedStr;
+        AF_DEBUG("ForvoClient: constructed URL={}", fullUrl);
+        return fullUrl;
+      }
+    } catch (const std::exception& e) {
+      AF_WARN("ForvoClient: base64 decode failed: {}", e.what());
     }
 
     return "";
@@ -265,7 +391,10 @@ namespace Video2Card::Language::Audio
     return results;
   }
 
-  std::string ForvoClient::GenerateFilename(const std::string& word, const std::string& username, int index) const
+  std::string ForvoClient::GenerateFilename(const std::string& word,
+                                            const std::string& username,
+                                            int index,
+                                            const std::string& extension) const
   {
     // Create a safe filename
     std::string safeWord = word;
@@ -291,7 +420,7 @@ namespace Video2Card::Language::Audio
       ss << "_" << index;
     }
 
-    ss << "." << m_AudioFormat;
+    ss << "." << extension;
 
     return ss.str();
   }

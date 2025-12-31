@@ -52,6 +52,8 @@ pkg_check_modules(WEBP REQUIRED libwebp)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
 
+find_package(SQLite3 REQUIRED)
+
 # Try to find Mecab with pkg-config first, fall back to manual detection
 pkg_check_modules(MECAB mecab)
 if(NOT MECAB_FOUND)
@@ -137,6 +139,7 @@ target_link_libraries(AnkiVideo2Card PRIVATE
     ${MPV_LIBRARIES}
     ${FFMPEG_LIBRARIES}
     ${MECAB_LIBRARIES}
+    SQLite::SQLite3
 )
 
 target_link_directories(AnkiVideo2Card PRIVATE
