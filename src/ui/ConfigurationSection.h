@@ -44,6 +44,11 @@ public:
 
     void SetOnConnectCallback(std::function<void()> callback) { m_OnConnectCallback = callback; }
 
+    void SetOnTranslatorChangeCallback(std::function<void(const std::string&)> callback)
+    {
+      m_OnTranslatorChangeCallback = callback;
+    }
+
     void RenderAnkiConnectTab();
     void RenderLanguageServicesTab();
 
@@ -60,6 +65,9 @@ private:
     Language::ILanguage** m_ActiveLanguage;
 
     std::function<void()> m_OnConnectCallback;
+    std::function<void(const std::string&)> m_OnTranslatorChangeCallback;
+
+    int m_SelectedTranslatorIndex = 0;
   };
 
 } // namespace Video2Card::UI

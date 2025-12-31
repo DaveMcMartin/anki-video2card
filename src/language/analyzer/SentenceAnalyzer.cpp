@@ -8,6 +8,7 @@
 #include "language/furigana/MecabBasedFuriganaGenerator.h"
 #include "language/morphology/MecabAnalyzer.h"
 #include "language/pitch_accent/PitchAccentDatabase.h"
+#include "language/services/CTranslate2Service.h"
 #include "language/services/DeepLService.h"
 #include "language/services/ILanguageService.h"
 
@@ -20,11 +21,18 @@ namespace Video2Card::Language::Analyzer
       , m_FuriganaGen(nullptr)
       , m_DictClient(nullptr)
       , m_PitchAccent(nullptr)
+      , m_PreferredTranslatorId("")
   {}
 
   void SentenceAnalyzer::SetLanguageServices(const std::vector<std::unique_ptr<Services::ILanguageService>>* services)
   {
     m_LanguageServices = services;
+  }
+
+  void SentenceAnalyzer::SetPreferredTranslator(const std::string& translatorId)
+  {
+    m_PreferredTranslatorId = translatorId;
+    AF_INFO("SentenceAnalyzer: Preferred translator set to '{}'", translatorId);
   }
 
   bool SentenceAnalyzer::Initialize(const std::string& basePath)
@@ -187,12 +195,39 @@ namespace Video2Card::Language::Analyzer
       return nullptr;
     }
 
+    if (!m_PreferredTranslatorId.empty()) {
+      for (const auto& service : *m_LanguageServices) {
+        if (service->GetType() == "translator" && service->GetId() == m_PreferredTranslatorId && service->IsAvailable())
+        {
+          if (service->GetId() == "ctranslate2") {
+            auto* ctranslate2Service = dynamic_cast<Services::CTranslate2Service*>(service.get());
+            if (ctranslate2Service) {
+              AF_INFO("GetTranslator: Using preferred CTranslate2 translator");
+              return ctranslate2Service->GetTranslator();
+            }
+          } else if (service->GetId() == "deepl") {
+            auto* deeplService = dynamic_cast<Services::DeepLService*>(service.get());
+            if (deeplService) {
+              AF_INFO("GetTranslator: Using preferred DeepL translator");
+              return deeplService->GetTranslator();
+            }
+          }
+        }
+      }
+    }
+
     for (const auto& service : *m_LanguageServices) {
       if (service->GetType() == "translator" && service->IsAvailable()) {
-        // Try to cast to DeepLService to get the translator
-        if (service->GetId() == "deepl") {
+        if (service->GetId() == "ctranslate2") {
+          auto* ctranslate2Service = dynamic_cast<Services::CTranslate2Service*>(service.get());
+          if (ctranslate2Service) {
+            AF_INFO("GetTranslator: Using CTranslate2 translator");
+            return ctranslate2Service->GetTranslator();
+          }
+        } else if (service->GetId() == "deepl") {
           auto* deeplService = dynamic_cast<Services::DeepLService*>(service.get());
           if (deeplService) {
+            AF_INFO("GetTranslator: Using DeepL translator");
             return deeplService->GetTranslator();
           }
         }

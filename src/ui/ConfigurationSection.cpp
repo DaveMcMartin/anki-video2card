@@ -7,6 +7,7 @@
 
 #include "api/AnkiConnectClient.h"
 #include "config/ConfigManager.h"
+#include "core/Logger.h"
 #include "language/ILanguage.h"
 #include "language/services/ILanguageService.h"
 
@@ -100,21 +101,11 @@ namespace Video2Card::UI
 
     // Provider selection
     if (!translators.empty()) {
-      // Find current selected translator
-      Language::Services::ILanguageService* selectedTranslator = nullptr;
-      int selectedIndex = 0;
-
-      for (size_t i = 0; i < translators.size(); i++) {
-        if (translators[i]->GetId() == "deepl") { // Default to DeepL for now
-          selectedTranslator = translators[i];
-          selectedIndex = static_cast<int>(i);
-          break;
-        }
+      if (m_SelectedTranslatorIndex >= static_cast<int>(translators.size())) {
+        m_SelectedTranslatorIndex = 0;
       }
 
-      if (!selectedTranslator && !translators.empty()) {
-        selectedTranslator = translators[0];
-      }
+      Language::Services::ILanguageService* selectedTranslator = translators[m_SelectedTranslatorIndex];
 
       ImGui::Text("Provider");
       ImGui::SetNextItemWidth(-1);
@@ -122,10 +113,13 @@ namespace Video2Card::UI
                             selectedTranslator ? selectedTranslator->GetName().c_str() : "None"))
       {
         for (size_t i = 0; i < translators.size(); i++) {
-          bool isSelected = (static_cast<int>(i) == selectedIndex);
+          bool isSelected = (static_cast<int>(i) == m_SelectedTranslatorIndex);
           if (ImGui::Selectable(translators[i]->GetName().c_str(), isSelected)) {
+            m_SelectedTranslatorIndex = static_cast<int>(i);
             selectedTranslator = translators[i];
-            selectedIndex = static_cast<int>(i);
+            if (m_OnTranslatorChangeCallback) {
+              m_OnTranslatorChangeCallback(selectedTranslator->GetId());
+            }
           }
           if (isSelected) {
             ImGui::SetItemDefaultFocus();

@@ -21,6 +21,7 @@
 #include "language/JapaneseLanguage.h"
 #include "language/analyzer/SentenceAnalyzer.h"
 #include "language/audio/ForvoClient.h"
+#include "language/services/CTranslate2Service.h"
 #include "language/services/DeepLService.h"
 #include "ui/AnkiCardSettingsSection.h"
 #include "ui/ConfigurationSection.h"
@@ -209,6 +210,15 @@ namespace Video2Card
     }
 
     // Initialize language services
+    auto ctranslate2Service = std::make_unique<Language::Services::CTranslate2Service>();
+    nlohmann::json ctranslate2Config;
+    ctranslate2Config["enabled"] = true;
+    ctranslate2Config["device"] = "cpu";
+    ctranslate2Config["beam_size"] = 4;
+    ctranslate2Service->LoadConfig(ctranslate2Config);
+    ctranslate2Service->InitializeTranslator(m_BasePath);
+    m_LanguageServices.push_back(std::move(ctranslate2Service));
+
     auto deeplService = std::make_unique<Language::Services::DeepLService>();
     nlohmann::json deeplConfig;
     deeplConfig["api_key"] = m_ConfigManager->GetConfig().DeepLApiKey;
@@ -256,6 +266,12 @@ namespace Video2Card
       m_AnkiConnected.store(true);
       if (m_StatusSection)
         m_StatusSection->SetStatus("AnkiConnect: Connected");
+    });
+
+    m_ConfigurationSection->SetOnTranslatorChangeCallback([this](const std::string& translatorId) {
+      if (m_SentenceAnalyzer) {
+        m_SentenceAnalyzer->SetPreferredTranslator(translatorId);
+      }
     });
 
     m_VideoSection->SetOnExtractCallback([this]() { OnExtract(); });

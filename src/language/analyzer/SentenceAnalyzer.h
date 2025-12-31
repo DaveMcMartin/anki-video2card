@@ -62,6 +62,12 @@ public:
     void SetLanguageServices(const std::vector<std::unique_ptr<Services::ILanguageService>>* services);
 
     /**
+   * Set the preferred translator ID to use.
+   * @param translatorId The ID of the translator service to prefer (e.g., "ctranslate2", "deepl")
+   */
+    void SetPreferredTranslator(const std::string& translatorId);
+
+    /**
    * Initialize the analyzer with MeCab and other components.
    * @param basePath Base path for assets (database, etc.)
    * @return true if initialization succeeded
@@ -118,6 +124,7 @@ private:
     std::shared_ptr<Furigana::IFuriganaGenerator> m_FuriganaGen;
     std::shared_ptr<Dictionary::IDictionaryClient> m_DictClient;
     std::shared_ptr<PitchAccent::IPitchAccentLookup> m_PitchAccent;
+    std::string m_PreferredTranslatorId;
   };
 
 } // namespace Video2Card::Language::Analyzer

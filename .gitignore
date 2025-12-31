@@ -58,3 +58,7 @@ config.json
 
 # DBs
 assets/pitch_accent.db
+
+# Translation Models
+assets/translation_model/
+assets/temp_model_download/

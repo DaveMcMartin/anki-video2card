@@ -33,74 +33,29 @@ Anki Video2Card is a modern C++23 cross-platform desktop application designed to
 - **Left Arrow**: Seek backward 5s
 - **M**: Extract current scene (Image + Audio + Subtitle)
 
-## Prerequisites
+## Getting Started
 
-- **C++ Compiler**: A C++23 compatible compiler (Clang 17+, GCC 13+, MSVC 2022+).
-- **CMake**: Version 3.25 or higher.
-- **Git**: For fetching dependencies.
-- **Runtime Dependencies**:
-  - **libmpv**: For video playback.
-  - **FFmpeg**: For audio extraction (libavformat, libavcodec, libavutil, libswscale).
-  - **libwebp**: For image encoding.
-  - **Mecab**: For morphological analysis of Japanese text.
-  - **Anki**: With the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed.
+### Installation
 
-### Installing Dependencies
+See the [Installation Guide](docs/installation.md) for detailed instructions on installing dependencies for your platform (macOS, Linux, or Windows).
 
-**macOS (Homebrew):**
+### Building
+
+See the [Building Guide](docs/building.md) for step-by-step instructions on building the application from source.
+
+### Quick Start
+
+For experienced users:
+
 ```bash
-brew install mpv ffmpeg webp mecab mecab-ipadic
+git clone https://github.com/DaveMcMartin/anki-video2card.git
+cd anki-video2card
+python3 scripts/download_translation_model.py
+python3 scripts/convert_pitch_accent.py
+mkdir build && cd build
+cmake ..
+cmake --build .
 ```
-
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt-get install libmpv-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libwebp-dev
-```
-
-## Building
-
-This project uses CMake and FetchContent to manage internal dependencies (SDL3, ImGui, nlohmann/json, cpp-httplib).
-
-1. **Clone the repository**:
-
-   ```bash
-   git clone https://github.com/DaveMcMartin/anki-video2card.git
-   cd anki-video2card
-   ```
-
-2. **Setup pitch accent database** (optional but recommended):
-
-   The application includes pitch accent support. To enable it, generate the SQLite database from the included CSV files:
-
-   ```bash
-   python3 scripts/convert_pitch_accent.py
-   ```
-
-   This will create `assets/pitch_accent.db` from the CSV files in the assets folder. If you skip this step, the application will work without pitch accent support.
-
-3. **Create a build directory**:
-
-   ```bash
-   mkdir build
-   cd build
-   ```
-
-4. **Configure the project**:
-
-   ```bash
-   cmake ..
-   ```
-
-5. **Build**:
-
-   ```bash
-   cmake --build .
-   ```
-
-6. **Run**:
-   - **macOS**: `./bin/Anki\ Video2Card.app/Contents/MacOS/Anki\ Video2Card`
-   - **Linux**: `./bin/Anki\ Video2Card`
-   - **Windows**: `bin\Anki Video2Card.exe`
 
 ## Project Structure
 
@@ -146,6 +101,7 @@ This project uses CMake and FetchContent to manage internal dependencies (SDL3, 
 - **FFmpeg**: Video and audio processing library (with Vorbis codec support).
 - **libmpv**: Media player library.
 - **Mecab**: Japanese morphological analyzer.
+- **CTranslate2**: Fast inference engine for Transformer models (local translation).
 - **SQLite3**: Database engine for dictionary and pitch accent lookups.
 
 ## License
