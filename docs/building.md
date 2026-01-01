@@ -37,13 +37,13 @@ The translation model is required for offline Japanese-English translation:
 
 ```bash
 # Install Python dependencies if not already installed
-pip3 install huggingface-hub transformers torch ctranslate2
+pip3 install huggingface-hub
 
-# Download and convert the model (~300MB download)
+# Download the model
 python3 scripts/download_translation_model.py
 ```
 
-This creates `assets/translation_model/` with the converted CTranslate2 model.
+This creates `assets/translation_model/` with the CTranslate2 model.
 
 #### Generate Pitch Accent Database (Optional)
 

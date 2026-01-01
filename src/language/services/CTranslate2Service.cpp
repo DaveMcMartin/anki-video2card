@@ -47,7 +47,7 @@ namespace Video2Card::Language::Services
     }
 
     ImGui::Spacing();
-    ImGui::TextWrapped("Uses Helsinki-NLP/opus-mt-ja-en model for offline Japanese-English translation.");
+    ImGui::TextWrapped("Uses entai2965/sugoi-v4-ja-en-ctranslate2 model for offline Japanese-English translation.");
     ImGui::Spacing();
 
     if (!m_IsEnabled) {

@@ -157,17 +157,17 @@ Note: You may need to run the install command in an Administrator PowerShell.
 
 ## Translation Model
 
-Download the Helsinki-NLP/opus-mt-ja-en model for offline translation:
+Download the entai2965/sugoi-v4-ja-en-ctranslate2 model for offline translation:
 
 ```bash
 # Install Python dependencies
-pip3 install huggingface-hub transformers torch ctranslate2
+pip3 install huggingface-hub
 
 # Run the download script (from project root)
 python3 scripts/download_translation_model.py
 ```
 
-This will download approximately 300MB and convert the model to CTranslate2 format in `assets/translation_model/`.
+This will download the model in CTranslate2 format to `assets/translation_model/`.
 
 ## Pitch Accent Database (Optional)
 
