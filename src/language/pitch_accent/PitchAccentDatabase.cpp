@@ -105,21 +105,28 @@ namespace Video2Card::Language::PitchAccent
     }
 
     std::ostringstream result;
+    std::vector<std::string> seen;
+    bool first = true;
 
-    for (size_t i = 0; i < entries.size(); ++i) {
-      const auto& entry = entries[i];
-
+    for (const auto& entry : entries) {
       std::string htmlNotation = ConvertXmlTagsToHtml(entry.htmlNotation);
 
-      result << htmlNotation;
-
+      std::string combined = htmlNotation;
       if (!entry.pitchNumber.empty()) {
-        result << " <span class=\"pitch_number\">" << entry.pitchNumber << "</span>";
+        combined += " <span class=\"pitch_number\">" + entry.pitchNumber + "</span>";
       }
 
-      if (i < entries.size() - 1) {
+      if (std::find(seen.begin(), seen.end(), combined) != seen.end()) {
+        continue;
+      }
+      seen.push_back(combined);
+
+      if (!first) {
         result << "・";
       }
+      first = false;
+
+      result << combined;
     }
 
     return result.str();

@@ -416,7 +416,8 @@ namespace Video2Card::UI
 
     float buttonWidth = 40.0f;
 
-    // Play/Pause
+    ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+
     if (ImGui::Button(m_IsPlaying ? ICON_FA_PAUSE : ICON_FA_PLAY, ImVec2(buttonWidth, 0))) {
       TogglePlayback();
     }
@@ -427,6 +428,8 @@ namespace Video2Card::UI
     ImGui::SameLine();
     if (ImGui::Button("+5s", ImVec2(buttonWidth, 0)))
       Seek(5.0);
+
+    ImGui::PopItemFlag();
 
     ImGui::SameLine();
     ImGui::SetNextItemWidth(100);
@@ -439,9 +442,11 @@ namespace Video2Card::UI
 
     ImGui::SameLine();
 
+    ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
     if (ImGui::Button(ICON_FA_TRASH, ImVec2(buttonWidth, 0))) {
       ClearVideo();
     }
+    ImGui::PopItemFlag();
 
     ImGui::SameLine();
 
@@ -466,8 +471,8 @@ namespace Video2Card::UI
   {
     if (!m_mpv)
       return;
-    const char* cmd[] = {"cycle", "pause", nullptr};
-    mpv_command_async(m_mpv, 0, cmd);
+    int flag = !m_IsPlaying ? 0 : 1;
+    mpv_set_property(m_mpv, "pause", MPV_FORMAT_FLAG, &flag);
   }
 
   void VideoSection::Seek(double seconds)

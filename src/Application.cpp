@@ -837,6 +837,13 @@ namespace Video2Card
       return text;
     }
 
+    if (endPos < text.length() && text[endPos] == '[') {
+      size_t bracketEnd = text.find(']', endPos);
+      if (bracketEnd != std::string::npos) {
+        endPos = bracketEnd + 1;
+      }
+    }
+
     std::string result = text.substr(0, startPos);
     result += "<b style=\"color: #00FF00\">";
     result += text.substr(startPos, endPos - startPos);
