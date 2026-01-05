@@ -8,8 +8,8 @@
 #include "language/furigana/MecabBasedFuriganaGenerator.h"
 #include "language/morphology/MecabAnalyzer.h"
 #include "language/pitch_accent/PitchAccentDatabase.h"
-#include "language/services/CTranslate2Service.h"
 #include "language/services/DeepLService.h"
+#include "language/services/GoogleTranslateService.h"
 #include "language/services/ILanguageService.h"
 
 namespace Video2Card::Language::Analyzer
@@ -199,11 +199,11 @@ namespace Video2Card::Language::Analyzer
       for (const auto& service : *m_LanguageServices) {
         if (service->GetType() == "translator" && service->GetId() == m_PreferredTranslatorId && service->IsAvailable())
         {
-          if (service->GetId() == "ctranslate2") {
-            auto* ctranslate2Service = dynamic_cast<Services::CTranslate2Service*>(service.get());
-            if (ctranslate2Service) {
-              AF_INFO("GetTranslator: Using preferred CTranslate2 translator");
-              return ctranslate2Service->GetTranslator();
+          if (service->GetId() == "google_translate") {
+            auto* googleService = dynamic_cast<Services::GoogleTranslateService*>(service.get());
+            if (googleService) {
+              AF_INFO("GetTranslator: Using preferred Google Translate translator");
+              return googleService->GetTranslator();
             }
           } else if (service->GetId() == "deepl") {
             auto* deeplService = dynamic_cast<Services::DeepLService*>(service.get());
@@ -218,11 +218,11 @@ namespace Video2Card::Language::Analyzer
 
     for (const auto& service : *m_LanguageServices) {
       if (service->GetType() == "translator" && service->IsAvailable()) {
-        if (service->GetId() == "ctranslate2") {
-          auto* ctranslate2Service = dynamic_cast<Services::CTranslate2Service*>(service.get());
-          if (ctranslate2Service) {
-            AF_INFO("GetTranslator: Using CTranslate2 translator");
-            return ctranslate2Service->GetTranslator();
+        if (service->GetId() == "google_translate") {
+          auto* googleService = dynamic_cast<Services::GoogleTranslateService*>(service.get());
+          if (googleService) {
+            AF_INFO("GetTranslator: Using Google Translate translator");
+            return googleService->GetTranslator();
           }
         } else if (service->GetId() == "deepl") {
           auto* deeplService = dynamic_cast<Services::DeepLService*>(service.get());

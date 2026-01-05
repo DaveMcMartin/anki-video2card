@@ -21,8 +21,8 @@
 #include "language/JapaneseLanguage.h"
 #include "language/analyzer/SentenceAnalyzer.h"
 #include "language/audio/ForvoClient.h"
-#include "language/services/CTranslate2Service.h"
 #include "language/services/DeepLService.h"
+#include "language/services/GoogleTranslateService.h"
 #include "ui/AnkiCardSettingsSection.h"
 #include "ui/ConfigurationSection.h"
 #include "ui/StatusSection.h"
@@ -37,13 +37,26 @@
 namespace Video2Card
 {
 
+  void SDLWindowDeleter::operator()(SDL_Window* window) const
+  {
+    if (window) {
+      SDL_DestroyWindow(window);
+    }
+  }
+
+  void SDLRendererDeleter::operator()(SDL_Renderer* renderer) const
+  {
+    if (renderer) {
+      SDL_DestroyRenderer(renderer);
+    }
+  }
+
   Application::Application(std::string title, int width, int height)
       : m_Title(std::move(title))
       , m_Width(width)
       , m_Height(height)
       , m_IsRunning(true)
-      , m_Window(nullptr)
-      , m_Renderer(nullptr)
+      , m_ActiveLanguage(nullptr)
   {}
 
   Application::~Application()
@@ -73,27 +86,26 @@ namespace Video2Card
 
     const char* base = SDL_GetBasePath();
     if (base) {
-      m_BasePath = base;
-      SDL_free((void*) base);
+      m_BasePath = std::string(base);
     } else {
       AF_ERROR("SDL_GetBasePath failed: {}", SDL_GetError());
     }
 
     auto window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN |
                                            SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    m_Window = SDL_CreateWindow(m_Title.c_str(), m_Width, m_Height, window_flags);
-    if (m_Window == nullptr) {
+    m_Window.reset(SDL_CreateWindow(m_Title.c_str(), m_Width, m_Height, window_flags));
+    if (!m_Window) {
       AF_ERROR("Error: SDL_CreateWindow(): {}", SDL_GetError());
       return false;
     }
 
-    m_Renderer = SDL_CreateRenderer(m_Window, nullptr);
-    if (m_Renderer == nullptr) {
+    m_Renderer.reset(SDL_CreateRenderer(m_Window.get(), nullptr));
+    if (!m_Renderer) {
       AF_ERROR("Error: SDL_CreateRenderer(): {}", SDL_GetError());
       return false;
     }
 
-    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_SetWindowPosition(m_Window.get(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
     {
       const std::string iconPath = m_BasePath + "assets/logo.png";
@@ -103,7 +115,7 @@ namespace Video2Card
         auto iconSurface = SDL::MakeSurfaceFrom(iconWidth, iconHeight, SDL_PIXELFORMAT_RGBA32, iconData, iconWidth * 4);
 
         if (iconSurface) {
-          SDL_SetWindowIcon(m_Window, iconSurface.get());
+          SDL_SetWindowIcon(m_Window.get(), iconSurface.get());
         } else {
           AF_WARN("Failed to create icon surface: {}", SDL_GetError());
         }
@@ -113,14 +125,12 @@ namespace Video2Card
       }
     }
 
-    SDL_ShowWindow(m_Window);
+    SDL_ShowWindow(m_Window.get());
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    (void) io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui::StyleColorsDark();
@@ -171,8 +181,8 @@ namespace Video2Card
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL3_InitForSDLRenderer(m_Window, m_Renderer);
-    ImGui_ImplSDLRenderer3_Init(m_Renderer);
+    ImGui_ImplSDL3_InitForSDLRenderer(m_Window.get(), m_Renderer.get());
+    ImGui_ImplSDLRenderer3_Init(m_Renderer.get());
 
     std::string fontPath = m_BasePath + "assets/NotoSansJP-Regular.otf";
     float fontSize = 24.0f;
@@ -210,14 +220,12 @@ namespace Video2Card
     }
 
     // Initialize language services
-    auto ctranslate2Service = std::make_unique<Language::Services::CTranslate2Service>();
-    nlohmann::json ctranslate2Config;
-    ctranslate2Config["enabled"] = true;
-    ctranslate2Config["device"] = "cpu";
-    ctranslate2Config["beam_size"] = 4;
-    ctranslate2Service->LoadConfig(ctranslate2Config);
-    ctranslate2Service->InitializeTranslator(m_BasePath);
-    m_LanguageServices.push_back(std::move(ctranslate2Service));
+    auto googleTranslateService = std::make_unique<Language::Services::GoogleTranslateService>();
+    nlohmann::json googleTranslateConfig;
+    googleTranslateConfig["source_lang"] = "ja";
+    googleTranslateConfig["target_lang"] = "en";
+    googleTranslateService->LoadConfig(googleTranslateConfig);
+    m_LanguageServices.push_back(std::move(googleTranslateService));
 
     auto deeplService = std::make_unique<Language::Services::DeepLService>();
     nlohmann::json deeplConfig;
@@ -247,11 +255,11 @@ namespace Video2Card
     m_AnkiConnectClient = std::make_unique<API::AnkiConnectClient>(ankiUrl);
 
     m_VideoSection =
-        std::make_unique<UI::VideoSection>(m_Renderer, m_ConfigManager.get(), &m_Languages, &m_ActiveLanguage);
+        std::make_unique<UI::VideoSection>(m_Renderer.get(), m_ConfigManager.get(), &m_Languages, &m_ActiveLanguage);
     m_ConfigurationSection = std::make_unique<UI::ConfigurationSection>(
         m_AnkiConnectClient.get(), m_ConfigManager.get(), &m_LanguageServices, &m_Languages, &m_ActiveLanguage);
-    m_AnkiCardSettingsSection =
-        std::make_unique<UI::AnkiCardSettingsSection>(m_Renderer, m_AnkiConnectClient.get(), m_ConfigManager.get());
+    m_AnkiCardSettingsSection = std::make_unique<UI::AnkiCardSettingsSection>(
+        m_Renderer.get(), m_AnkiConnectClient.get(), m_ConfigManager.get());
     m_StatusSection = std::make_unique<UI::StatusSection>();
 
     m_AnkiCardSettingsSection->SetOnStatusMessageCallback([this](const std::string& msg) {
@@ -315,15 +323,8 @@ namespace Video2Card
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
-    if (m_Renderer) {
-      SDL_DestroyRenderer(m_Renderer);
-      m_Renderer = nullptr;
-    }
-
-    if (m_Window) {
-      SDL_DestroyWindow(m_Window);
-      m_Window = nullptr;
-    }
+    m_Renderer.reset();
+    m_Window.reset();
 
     SDL_Quit();
   }
@@ -335,7 +336,7 @@ namespace Video2Card
       ImGui_ImplSDL3_ProcessEvent(&event);
       if (event.type == SDL_EVENT_QUIT)
         m_IsRunning = false;
-      if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(m_Window))
+      if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(m_Window.get()))
         m_IsRunning = false;
 
       // Handle file drop
@@ -365,14 +366,14 @@ namespace Video2Card
     RenderExtractModal();
 
     ImGui::Render();
-    SDL_SetRenderDrawColor(m_Renderer, 0, 0, 0, 255);
-    SDL_RenderClear(m_Renderer);
+    SDL_SetRenderDrawColor(m_Renderer.get(), 0, 0, 0, 255);
+    SDL_RenderClear(m_Renderer.get());
 
     ImGuiIO& io = ImGui::GetIO();
-    SDL_SetRenderScale(m_Renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+    SDL_SetRenderScale(m_Renderer.get(), io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_Renderer);
-    SDL_RenderPresent(m_Renderer);
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_Renderer.get());
+    SDL_RenderPresent(m_Renderer.get());
   }
 
   void Application::RenderUI()
@@ -862,7 +863,7 @@ namespace Video2Card
 
     int width = 0;
     int height = 0;
-    SDL_GetWindowSize(m_Window, &width, &height);
+    SDL_GetWindowSize(m_Window.get(), &width, &height);
 
     if (width > 0 && height > 0) {
       auto& config = m_ConfigManager->GetConfig();
@@ -880,8 +881,8 @@ namespace Video2Card
 
     const auto& config = m_ConfigManager->GetConfig();
     if (config.WindowWidth > 0 && config.WindowHeight > 0) {
-      SDL_SetWindowSize(m_Window, config.WindowWidth, config.WindowHeight);
-      SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+      SDL_SetWindowSize(m_Window.get(), config.WindowWidth, config.WindowHeight);
+      SDL_SetWindowPosition(m_Window.get(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
   }
 

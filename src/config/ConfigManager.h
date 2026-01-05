@@ -17,17 +17,6 @@ namespace Video2Card::Config
 
     std::string SelectedLanguage = "JP";
 
-    std::string TextProvider = "xAI";
-    std::string TextApiKey;
-    std::string TextVisionModel = "grok-2-vision-1212";
-    std::string TextSentenceModel = "grok-2-1212";
-    std::vector<std::string> TextAvailableModels;
-
-    std::string GoogleApiKey;
-    std::string GoogleVisionModel = "gemini-2.0-flash";
-    std::string GoogleSentenceModel = "gemini-2.0-flash";
-    std::vector<std::string> GoogleAvailableModels;
-
     std::string AudioProvider = "ElevenLabs";
     std::string AudioApiKey;
     std::string AudioVoiceId;

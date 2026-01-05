@@ -35,28 +35,6 @@ namespace Video2Card::Config
       if (j.contains("selected_language"))
         m_Config.SelectedLanguage = j["selected_language"];
 
-      if (j.contains("text_provider"))
-        m_Config.TextProvider = j["text_provider"];
-      if (j.contains("text_api_key"))
-        m_Config.TextApiKey = j["text_api_key"];
-      if (j.contains("text_vision_model"))
-        m_Config.TextVisionModel = j["text_vision_model"];
-      if (j.contains("text_sentence_model"))
-        m_Config.TextSentenceModel = j["text_sentence_model"];
-      if (j.contains("text_available_models"))
-        m_Config.TextAvailableModels = j["text_available_models"].get<std::vector<std::string>>();
-
-      if (j.contains("google_api_key"))
-        m_Config.GoogleApiKey = j["google_api_key"];
-      if (j.contains("google_vision_model"))
-        m_Config.GoogleVisionModel = j["google_vision_model"];
-      if (j.contains("google_sentence_model"))
-        m_Config.GoogleSentenceModel = j["google_sentence_model"];
-      if (j.contains("google_model"))
-        m_Config.GoogleVisionModel = j["google_model"]; // Fallback for old config
-      if (j.contains("google_available_models"))
-        m_Config.GoogleAvailableModels = j["google_available_models"].get<std::vector<std::string>>();
-
       if (j.contains("audio_provider"))
         m_Config.AudioProvider = j["audio_provider"];
       if (j.contains("audio_api_key"))
@@ -118,17 +96,6 @@ namespace Video2Card::Config
     j["anki_note_types"] = m_Config.AnkiNoteTypes;
 
     j["selected_language"] = m_Config.SelectedLanguage;
-
-    j["text_provider"] = m_Config.TextProvider;
-    j["text_api_key"] = m_Config.TextApiKey;
-    j["text_vision_model"] = m_Config.TextVisionModel;
-    j["text_sentence_model"] = m_Config.TextSentenceModel;
-    j["text_available_models"] = m_Config.TextAvailableModels;
-
-    j["google_api_key"] = m_Config.GoogleApiKey;
-    j["google_vision_model"] = m_Config.GoogleVisionModel;
-    j["google_sentence_model"] = m_Config.GoogleSentenceModel;
-    j["google_available_models"] = m_Config.GoogleAvailableModels;
 
     j["audio_provider"] = m_Config.AudioProvider;
     j["audio_api_key"] = m_Config.AudioApiKey;

@@ -12,6 +12,19 @@
 struct SDL_Window;
 struct SDL_Renderer;
 
+namespace Video2Card
+{
+  struct SDLWindowDeleter
+  {
+    void operator()(SDL_Window* window) const;
+  };
+
+  struct SDLRendererDeleter
+  {
+    void operator()(SDL_Renderer* renderer) const;
+  };
+} // namespace Video2Card
+
 namespace Video2Card::UI
 {
   class VideoSection;
@@ -92,8 +105,8 @@ private:
     int m_Height;
     bool m_IsRunning;
 
-    SDL_Window* m_Window;
-    SDL_Renderer* m_Renderer;
+    std::unique_ptr<SDL_Window, SDLWindowDeleter> m_Window;
+    std::unique_ptr<SDL_Renderer, SDLRendererDeleter> m_Renderer;
 
     std::string m_BasePath;
 
@@ -110,7 +123,7 @@ private:
     std::unique_ptr<Language::Audio::ForvoClient> m_ForvoClient;
 
     std::vector<std::unique_ptr<Language::ILanguage>> m_Languages;
-    Language::ILanguage* m_ActiveLanguage = nullptr;
+    Language::ILanguage* m_ActiveLanguage;
 
     bool m_ShowExtractModal = false;
     bool m_OpenExtractModal = false;

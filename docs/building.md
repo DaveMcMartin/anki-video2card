@@ -13,7 +13,6 @@ For experienced users, here's the quick version:
 ```bash
 git clone https://github.com/DaveMcMartin/anki-video2card.git
 cd anki-video2card
-python3 scripts/download_translation_model.py
 python3 scripts/convert_pitch_accent.py
 mkdir build && cd build
 cmake ..
@@ -30,20 +29,6 @@ cd anki-video2card
 ```
 
 ### 2. Prepare Assets
-
-#### Download Translation Model
-
-The translation model is required for offline Japanese-English translation:
-
-```bash
-# Install Python dependencies if not already installed
-pip3 install huggingface-hub
-
-# Download the model
-python3 scripts/download_translation_model.py
-```
-
-This creates `assets/translation_model/` with the CTranslate2 model.
 
 #### Generate Pitch Accent Database (Optional)
 
@@ -183,7 +168,6 @@ After building, your directory structure will look like:
 ```
 anki-video2card/
 ├── assets/
-│   ├── translation_model/     # CTranslate2 model (if downloaded)
 │   ├── pitch_accent.db        # Pitch accent database (if generated)
 │   └── ...                    # Other assets
 ├── build/
@@ -249,21 +233,6 @@ cmake ..
 ```powershell
 # Ensure vcpkg toolchain is specified
 cmake -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake ..
-```
-
-### CTranslate2 Not Found
-
-If CMake can't find CTranslate2:
-
-```bash
-# macOS
-export CMAKE_PREFIX_PATH="/opt/homebrew:$CMAKE_PREFIX_PATH"
-
-# Linux
-export CMAKE_PREFIX_PATH="/usr/local:$CMAKE_PREFIX_PATH"
-
-# Then reconfigure
-cmake ..
 ```
 
 ### MeCab Not Found

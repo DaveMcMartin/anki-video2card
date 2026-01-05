@@ -101,7 +101,6 @@ cmake --build .
 - **FFmpeg**: Video and audio processing library (with Vorbis codec support).
 - **libmpv**: Media player library.
 - **Mecab**: Japanese morphological analyzer.
-- **CTranslate2**: Fast inference engine for Transformer models (local translation).
 - **SQLite3**: Database engine for dictionary and pitch accent lookups.
 
 ## License

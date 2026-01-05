@@ -54,8 +54,6 @@ pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale li
 
 find_package(SQLite3 REQUIRED)
 
-find_package(ctranslate2 REQUIRED)
-
 # Try to find Mecab with pkg-config first, fall back to manual detection
 pkg_check_modules(MECAB mecab)
 if(NOT MECAB_FOUND)
@@ -142,7 +140,6 @@ target_link_libraries(AnkiVideo2Card PRIVATE
     ${FFMPEG_LIBRARIES}
     ${MECAB_LIBRARIES}
     SQLite::SQLite3
-    CTranslate2::ctranslate2
 )
 
 target_link_directories(AnkiVideo2Card PRIVATE
