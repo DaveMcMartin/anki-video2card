@@ -27,7 +27,7 @@ public:
                     const std::vector<std::string>& tags = {});
     std::vector<int64_t> FindNotes(const std::string& query);
     bool StoreMediaFile(const std::string& filename, const std::string& base64Data);
-    bool GuiBrowse(int64_t cardId);
+    bool GuiBrowse(int64_t noteId);
 
 private:
 

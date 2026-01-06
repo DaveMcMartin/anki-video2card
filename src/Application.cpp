@@ -799,15 +799,27 @@ namespace Video2Card
 
     AF_DEBUG("HighlightTargetWord - textWithoutFurigana='{}'", textWithoutFurigana);
 
-    pos = textWithoutFurigana.find(targetWord);
-    AF_DEBUG("HighlightTargetWord - found targetWord at pos={}", pos);
+    std::string normalizedText;
+    std::string normalizedTarget;
+    for (char c : textWithoutFurigana) {
+      if (c != ' ') {
+        normalizedText += c;
+      }
+    }
+    for (char c : targetWord) {
+      if (c != ' ') {
+        normalizedTarget += c;
+      }
+    }
 
-    if (pos == std::string::npos) {
+    size_t normalizedPos = normalizedText.find(normalizedTarget);
+    AF_DEBUG("HighlightTargetWord - found targetWord at normalized pos={}", normalizedPos);
+
+    if (normalizedPos == std::string::npos) {
       AF_DEBUG("HighlightTargetWord - targetWord not found, returning original text");
       return text;
     }
 
-    size_t actualPos = 0;
     size_t charCount = 0;
     size_t startPos = std::string::npos;
     size_t endPos = std::string::npos;
@@ -822,13 +834,21 @@ namespace Video2Card
         inBracket = false;
         continue;
       }
-      if (!inBracket) {
-        if (charCount == pos) {
+      if (!inBracket && text[i] != ' ') {
+        if (charCount == normalizedPos) {
           startPos = i;
         }
         charCount++;
-        if (charCount == pos + targetWord.length()) {
+        if (charCount == normalizedPos + normalizedTarget.length()) {
           endPos = i + 1;
+          while (endPos < text.length() && text[endPos] == '[') {
+            size_t bracketEnd = text.find(']', endPos);
+            if (bracketEnd != std::string::npos) {
+              endPos = bracketEnd + 1;
+            } else {
+              break;
+            }
+          }
           break;
         }
       }
@@ -836,13 +856,6 @@ namespace Video2Card
 
     if (startPos == std::string::npos || endPos == std::string::npos) {
       return text;
-    }
-
-    if (endPos < text.length() && text[endPos] == '[') {
-      size_t bracketEnd = text.find(']', endPos);
-      if (bracketEnd != std::string::npos) {
-        endPos = bracketEnd + 1;
-      }
     }
 
     std::string result = text.substr(0, startPos);

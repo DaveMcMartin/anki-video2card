@@ -17,15 +17,6 @@ public:
     virtual std::string GetLanguageCode() const = 0;
     virtual std::string GetFontPath() const = 0;
 
-    virtual std::string GetOCRSystemPrompt() const = 0;
-    virtual std::string GetOCRUserPrompt() const = 0;
-
-    virtual std::string PostProcessOCR(const std::string& text) const { return text; }
-
-    virtual std::string GetAnalysisSystemPrompt() const = 0;
-    virtual std::string GetAnalysisUserPrompt(const std::string& sentence, const std::string& targetWord) const = 0;
-    virtual std::string GetAnalysisOutputFormat() const = 0;
-
     virtual const void* GetImGuiFontGlyphRanges() const = 0;
   };
 

@@ -148,10 +148,10 @@ namespace Video2Card::API
     return !result.is_null();
   }
 
-  bool AnkiConnectClient::GuiBrowse(int64_t cardId)
+  bool AnkiConnectClient::GuiBrowse(int64_t noteId)
   {
     nlohmann::json params;
-    params["query"] = "cid:" + std::to_string(cardId);
+    params["query"] = "nid:" + std::to_string(noteId);
 
     auto result = Execute("guiBrowse", params);
     return !result.is_null();

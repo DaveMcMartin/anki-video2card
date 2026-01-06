@@ -274,8 +274,46 @@ namespace Video2Card::Language::Analyzer
       return surface;
     }
 
+    if (m_DictClient) {
+      try {
+        auto dictEntry = m_DictClient->LookupWord(surface, "");
+        if (!dictEntry.definition.empty()) {
+          AF_DEBUG("Found '{}' in dictionary as-is, using as dictionary form", surface);
+          return surface;
+        }
+      } catch (const std::exception& e) {
+        AF_DEBUG("Dictionary lookup failed for '{}': {}", surface, e.what());
+      }
+    }
+
     try {
-      return m_MorphAnalyzer->GetDictionaryForm(surface);
+      auto tokens = m_MorphAnalyzer->Analyze(surface);
+      if (tokens.empty()) {
+        return surface;
+      }
+
+      if (tokens.size() == 1) {
+        return tokens[0].headword;
+      }
+
+      std::string combined;
+      for (const auto& token : tokens) {
+        combined += token.headword;
+      }
+
+      if (m_DictClient) {
+        try {
+          auto dictEntry = m_DictClient->LookupWord(combined, "");
+          if (!dictEntry.definition.empty()) {
+            AF_DEBUG("Found combined form '{}' in dictionary", combined);
+            return combined;
+          }
+        } catch (const std::exception& e) {
+          AF_DEBUG("Dictionary lookup failed for combined '{}': {}", combined, e.what());
+        }
+      }
+
+      return tokens[0].headword;
     } catch (const std::exception& e) {
       AF_WARN("Failed to get dictionary form: {}", e.what());
       return surface;
@@ -289,7 +327,17 @@ namespace Video2Card::Language::Analyzer
     }
 
     try {
-      return m_MorphAnalyzer->GetReading(surface);
+      auto tokens = m_MorphAnalyzer->Analyze(surface);
+      if (tokens.empty()) {
+        return "";
+      }
+
+      std::string combinedReading;
+      for (const auto& token : tokens) {
+        combinedReading += token.katakanaReading;
+      }
+
+      return combinedReading;
     } catch (const std::exception& e) {
       AF_WARN("Failed to get reading: {}", e.what());
       return "";

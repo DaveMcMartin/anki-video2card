@@ -48,10 +48,11 @@ namespace Video2Card::Language::PitchAccent
     }
 
     const char* sql = R"(
-      SELECT DISTINCT raw_headword, katakana_reading, html_notation, pitch_number
+      SELECT raw_headword, katakana_reading, html_notation, pitch_number
       FROM pitch_accents_formatted
       WHERE (headword = ? OR katakana_reading = ?)
-      ORDER BY frequency DESC, pitch_number ASC, katakana_reading ASC
+      GROUP BY html_notation, pitch_number
+      ORDER BY MAX(frequency) DESC, pitch_number ASC
       LIMIT 10
     )";
 

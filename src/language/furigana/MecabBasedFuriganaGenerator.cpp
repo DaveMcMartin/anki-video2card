@@ -368,7 +368,27 @@ namespace Video2Card::Language::Furigana
         return word;
       }
 
-      return FormatFurigana(tokens[0].surface, tokens[0].katakanaReading);
+      if (tokens.size() == 1) {
+        return FormatFurigana(tokens[0].surface, tokens[0].katakanaReading);
+      }
+
+      std::string result;
+      for (const auto& token : tokens) {
+        if (HasKanji(token.surface)) {
+          result += FormatFuriganaAdvanced(token.surface, token.katakanaReading);
+        } else {
+          result += token.surface;
+        }
+      }
+
+      while (!result.empty() && result.front() == ' ') {
+        result.erase(0, 1);
+      }
+      while (!result.empty() && result.back() == ' ') {
+        result.pop_back();
+      }
+
+      return result;
     } catch (const std::exception& e) {
       AF_WARN("Failed to generate furigana for word '{}': {}", word, e.what());
       return word;
