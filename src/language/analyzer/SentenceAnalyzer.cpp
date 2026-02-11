@@ -114,17 +114,17 @@ namespace Video2Card::Language::Analyzer
       std::string dictionaryForm = GetDictionaryForm(focusWord);
       std::string reading = GetReading(focusWord);
 
-      // Generate furigana for the target word
       std::string targetWordFurigana;
       if (m_FuriganaGen && !reading.empty()) {
         try {
-          targetWordFurigana = m_FuriganaGen->GenerateForWord(focusWord);
+          std::string wordToAnnotate = dictionaryForm.empty() ? focusWord : dictionaryForm;
+          targetWordFurigana = m_FuriganaGen->GenerateForWord(wordToAnnotate);
         } catch (const std::exception& e) {
           AF_WARN("Failed to generate target word furigana: {}", e.what());
-          targetWordFurigana = focusWord;
+          targetWordFurigana = dictionaryForm.empty() ? focusWord : dictionaryForm;
         }
       } else {
-        targetWordFurigana = focusWord;
+        targetWordFurigana = dictionaryForm.empty() ? focusWord : dictionaryForm;
       }
 
       // Look up the definition

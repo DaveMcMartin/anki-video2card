@@ -859,7 +859,7 @@ namespace Video2Card
     }
 
     std::string result = text.substr(0, startPos);
-    result += "<b style=\"color: #00FF00\">";
+    result += "<b style=\"color: green\">";
     result += text.substr(startPos, endPos - startPos);
     result += "</b>";
     result += text.substr(endPos);
