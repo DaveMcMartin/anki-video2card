@@ -330,7 +330,7 @@ namespace Video2Card::UI
     }
 
     // Calculate available space for video area (leaving space for controls at bottom)
-    float footerHeight = 90.0f;
+    float footerHeight = 110.0f;
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 videoAreaSize = ImVec2(avail.x, std::max(50.0f, avail.y - footerHeight));
 
@@ -363,6 +363,13 @@ namespace Video2Card::UI
     }
     ImGui::EndChild();
     ImGui::PopStyleColor();
+
+    if (!m_CurrentVideoPath.empty()) {
+      size_t lastSlash = m_CurrentVideoPath.find_last_of("/\\");
+      std::string filename =
+          (lastSlash != std::string::npos) ? m_CurrentVideoPath.substr(lastSlash + 1) : m_CurrentVideoPath;
+      ImGui::Text("%s", filename.c_str());
+    }
 
     DrawControls();
 
