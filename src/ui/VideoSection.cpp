@@ -68,9 +68,10 @@ namespace Video2Card::UI
 
     mpv_set_option_string(m_mpv, "config", "no");
     mpv_set_option_string(m_mpv, "terminal", "yes");
-    mpv_set_option_string(m_mpv, "msg-level", "all=warn");
+    mpv_set_option_string(m_mpv, "msg-level", "all=warn,fatal");
     mpv_set_option_string(m_mpv, "vd-lavc-threads", "4");
     mpv_set_option_string(m_mpv, "vo", "libmpv");
+    mpv_set_option_string(m_mpv, "sub-font-color", "white");
 
     if (mpv_initialize(m_mpv) < 0) {
       AF_ERROR("Failed to initialize mpv");
@@ -369,6 +370,25 @@ namespace Video2Card::UI
       std::string filename =
           (lastSlash != std::string::npos) ? m_CurrentVideoPath.substr(lastSlash + 1) : m_CurrentVideoPath;
       ImGui::Text("%s", filename.c_str());
+
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(120);
+      ImGui::InputInt("##subOffset", &m_SubtitleOffsetMs, 0, 0);
+      ImGui::SameLine();
+      if (ImGui::Button("-100")) {
+        m_SubtitleOffsetMs -= 100;
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("+100")) {
+        m_SubtitleOffsetMs += 100;
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(ICON_FA_ROTATE_RIGHT)) {
+        m_SubtitleOffsetMs = 0;
+      }
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Adjust subtitle timing offset in milliseconds");
+      }
     }
 
     DrawControls();
@@ -571,16 +591,14 @@ namespace Video2Card::UI
     mpv_get_property(m_mpv, "sub-start", MPV_FORMAT_DOUBLE, &data.start);
     mpv_get_property(m_mpv, "sub-end", MPV_FORMAT_DOUBLE, &data.end);
 
-    // If sub-start/end are not valid (e.g. no sub), they might be 0 or NaN.
-    // MPV usually returns relative time for sub-start/end? No, usually absolute timestamp?
-    // Actually sub-start/end properties are often not reliable for "current sub" timing in all mpv versions.
-    // But let's assume they work or we use current time.
-
-    // If we can't get precise timing, default to a window around current time
     if (data.start == 0.0 && data.end == 0.0 && !data.text.empty()) {
       data.start = m_CurrentTime;
-      data.end = m_CurrentTime + 2.0; // Default duration
+      data.end = m_CurrentTime + 2.0;
     }
+
+    double offsetSec = m_SubtitleOffsetMs / 1000.0;
+    data.start += offsetSec;
+    data.end += offsetSec;
 
     return data;
   }

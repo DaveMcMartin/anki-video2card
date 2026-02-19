@@ -65,6 +65,9 @@ public:
     std::vector<unsigned char> GetAudioClip(double start, double end);
     double GetCurrentTimestamp();
 
+    int GetSubtitleOffsetMs() const { return m_SubtitleOffsetMs; }
+    void SetSubtitleOffsetMs(int offsetMs) { m_SubtitleOffsetMs = offsetMs; }
+
 private:
 
     void InitializeMPV();
@@ -102,6 +105,8 @@ private:
 
     double m_PendingSeekPosition = -1.0;
     bool m_FileLoadedSuccessfully = false;
+
+    int m_SubtitleOffsetMs = 0;
   };
 
 } // namespace Video2Card::UI
