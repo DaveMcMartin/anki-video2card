@@ -615,7 +615,7 @@ namespace Video2Card::UI
     int pos = 0;
   };
 
-  static int write_packet(void* opaque, uint8_t* buf, int buf_size)
+  static int write_packet(void* opaque, const uint8_t* buf, int buf_size)
   {
     IOContext* ctx = (IOContext*) opaque;
     ctx->buffer.insert(ctx->buffer.end(), buf, buf + buf_size);
@@ -677,7 +677,7 @@ namespace Video2Card::UI
     const int avio_buffer_size = 4096;
     unsigned char* avio_buffer = (unsigned char*) av_malloc(avio_buffer_size);
     AVIOContext* avioContext =
-        avio_alloc_context(avio_buffer, avio_buffer_size, 1, &ioCtx, nullptr, write_packet, nullptr);
+        avio_alloc_context(avio_buffer, avio_buffer_size, 1, &ioCtx, nullptr, reinterpret_cast<int (*)(void*, uint8_t*, int)>(write_packet), nullptr);
 
     AVFormatContext* outputFormatContext = nullptr;
     avformat_alloc_output_context2(&outputFormatContext, nullptr, "ogg", nullptr);

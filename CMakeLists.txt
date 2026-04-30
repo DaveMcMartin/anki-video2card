@@ -49,12 +49,16 @@ FetchContent_MakeAvailable(cpp-httplib)
 # Find Dependencies
 if(WIN32)
     # On Windows, we use vcpkg, so we use find_package instead of pkg-config
-    find_package(WebP REQUIRED)
-    find_package(mpv REQUIRED)
-    # FFmpeg components are usually found individually via vcpkg
-    find_package(FFMPEG REQUIRED)
+    find_package(WebP CONFIG REQUIRED)
+    find_package(mpv CONFIG REQUIRED)
+    find_package(FFMPEG CONFIG REQUIRED)
     # Mecab on Windows is usually installed manually or via vcpkg
     find_package(mecab)
+
+    set(WEBP_LIBRARIES WebP::webp)
+    set(MPV_LIBRARIES mpv::mpv)
+    set(FFMPEG_LIBRARIES FFmpeg::avformat FFmpeg::avcodec FFmpeg::avutil FFmpeg::swscale FFmpeg::swresample)
+
     if(Mecab_FOUND)
         set(MECAB_INCLUDE_PATH ${Mecab_INCLUDE_DIRS})
         set(MECAB_LIBRARIES ${Mecab_LIBRARIES})
