@@ -1,3 +1,4 @@
+#include <cstring>
 #define MINIAUDIO_IMPLEMENTATION
 #include "AudioPlayer.h"
 

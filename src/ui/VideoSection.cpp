@@ -615,7 +615,7 @@ namespace Video2Card::UI
     int pos = 0;
   };
 
-  static int write_packet(void* opaque, const uint8_t* buf, int buf_size)
+  static int write_packet(void* opaque, uint8_t* buf, int buf_size)
   {
     IOContext* ctx = (IOContext*) opaque;
     ctx->buffer.insert(ctx->buffer.end(), buf, buf + buf_size);
