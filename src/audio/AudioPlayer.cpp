@@ -33,7 +33,7 @@ namespace Video2Card::Audio
       if (pImpl->isRawPCM) {
         size_t samplesToRead = frameCount * pImpl->channels;
         size_t samplesAvailable = pImpl->pcmBuffer.size() - pImpl->pcmPlaybackPosition;
-        size_t samplesToCopy = std::min(samplesToRead, samplesAvailable);
+        size_t samplesToCopy = (std::min)(samplesToRead, samplesAvailable);
 
         if (samplesToCopy > 0) {
           std::memcpy(pOutput, &pImpl->pcmBuffer[pImpl->pcmPlaybackPosition], samplesToCopy * sizeof(short));

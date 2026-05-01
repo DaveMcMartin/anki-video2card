@@ -695,7 +695,8 @@ namespace Video2Card::UI
     outCodecCtx->sample_rate = 44100;
     av_channel_layout_default(&outCodecCtx->ch_layout, 2);
     outCodecCtx->sample_fmt = AV_SAMPLE_FMT_FLTP;
-    outCodecCtx->time_base = (AVRational) {1, outCodecCtx->sample_rate};
+    outCodecCtx->time_base.num = 1;
+    outCodecCtx->time_base.den = outCodecCtx->sample_rate;
     outCodecCtx->bit_rate = 128000;
 
     if (avcodec_open2(outCodecCtx, outCodec, nullptr) < 0) {
