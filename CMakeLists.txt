@@ -47,29 +47,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpp-httplib)
 
 # Find Dependencies
-if(WIN32)
-    # On Windows, we use vcpkg, so we use find_package instead of pkg-config
-    find_package(WebP CONFIG REQUIRED)
-    find_package(mpv CONFIG REQUIRED)
-    find_package(FFMPEG CONFIG REQUIRED)
-    # Mecab on Windows is usually installed manually or via vcpkg
-    find_package(mecab)
-
-    set(WEBP_LIBRARIES WebP::webp)
-    set(MPV_LIBRARIES mpv::mpv)
-    set(FFMPEG_LIBRARIES FFmpeg::avformat FFmpeg::avcodec FFmpeg::avutil FFmpeg::swscale FFmpeg::swresample)
-
-    if(Mecab_FOUND)
-        set(MECAB_INCLUDE_PATH ${Mecab_INCLUDE_DIRS})
-        set(MECAB_LIBRARIES ${Mecab_LIBRARIES})
-        set(MECAB_LIBRARY_DIRS ${Mecab_LIBRARY_DIRS})
-    endif()
-else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(WEBP REQUIRED libwebp)
-    pkg_check_modules(MPV REQUIRED mpv)
-    pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WEBP REQUIRED libwebp)
+pkg_check_modules(MPV REQUIRED mpv)
+pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
 
 find_package(SQLite3 REQUIRED)
 

@@ -29,16 +29,10 @@ jobs:
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
         run: |
-          vcpkg install mpv:x64-windows ffmpeg:x64-windows libwebp:x64-windows
-          vcpkg integrate install
+          choco install -y mpv ffmpeg webp pkgconfiglite
 
       - name: Configure CMake
-        if: runner.os != 'Windows'
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
         run: cmake --build build --config Release
