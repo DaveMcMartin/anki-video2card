@@ -49,21 +49,45 @@ FetchContent_MakeAvailable(cpp-httplib)
 # Find Dependencies
 find_package(SQLite3 REQUIRED)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(WEBP REQUIRED libwebp)
-pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
-
 if(WIN32)
+    # Find WebP
+    find_path(WEBP_INCLUDE_DIR webp/decode.h)
+    find_library(WEBP_LIBRARY NAMES webp)
+    set(WEBP_LIBRARIES ${WEBP_LIBRARY})
+    set(WEBP_INCLUDE_DIRS ${WEBP_INCLUDE_DIR})
+
+    # Find FFmpeg components
+    find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
+    find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
+    find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
+    find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
+    find_path(SWRESAMPLE_INCLUDE_DIR libswresample/swresample.h)
+    set(FFMPEG_INCLUDE_DIRS ${AVFORMAT_INCLUDE_DIR} ${AVCODEC_INCLUDE_DIR} ${AVUTIL_INCLUDE_DIR} ${SWSCALE_INCLUDE_DIR} ${SWRESAMPLE_INCLUDE_DIR})
+
+    find_library(AVFORMAT_LIBRARY NAMES avformat)
+    find_library(AVCODEC_LIBRARY NAMES avcodec)
+    find_library(AVUTIL_LIBRARY NAMES avutil)
+    find_library(SWSCALE_LIBRARY NAMES swscale)
+    find_library(SWRESAMPLE_LIBRARY NAMES swresample)
+    set(FFMPEG_LIBRARIES ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY} ${SWRESAMPLE_LIBRARY})
+
+    # Find MPV
     find_path(MPV_INCLUDE_DIR mpv/client.h PATHS "C:/mpv-dev/include" REQUIRED)
     find_library(MPV_LIBRARY mpv libmpv PATHS "C:/mpv-dev" REQUIRED)
     set(MPV_LIBRARIES ${MPV_LIBRARY})
     set(MPV_INCLUDE_DIRS ${MPV_INCLUDE_DIR})
 else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(WEBP REQUIRED libwebp)
     pkg_check_modules(MPV REQUIRED mpv)
+    pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
 endif()
 
-# Try to find Mecab with pkg-config first, fall back to manual detection
-pkg_check_modules(MECAB mecab)
+if(NOT WIN32)
+    # Try to find Mecab with pkg-config first, fall back to manual detection
+    pkg_check_modules(MECAB mecab)
+endif()
+
 if(NOT MECAB_FOUND)
     # Fallback: use mecab-config on macOS/Linux/Windows
     find_program(MECAB_CONFIG mecab-config)
