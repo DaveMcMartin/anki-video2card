@@ -47,38 +47,56 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpp-httplib)
 
 # Find Dependencies
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(WEBP REQUIRED libwebp)
-pkg_check_modules(MPV REQUIRED mpv)
-pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
-
 find_package(SQLite3 REQUIRED)
 
-if(NOT WIN32)
-    # Try to find Mecab with pkg-config first, fall back to manual detection
-    pkg_check_modules(MECAB mecab)
-    if(NOT MECAB_FOUND)
-        # Fallback: use mecab-config on macOS/Linux
-        find_program(MECAB_CONFIG mecab-config)
-        if(MECAB_CONFIG)
-            execute_process(
-                COMMAND ${MECAB_CONFIG} --libs
-                OUTPUT_VARIABLE MECAB_LIBS
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-            execute_process(
-                COMMAND ${MECAB_CONFIG} --inc-dir
-                OUTPUT_VARIABLE MECAB_INCLUDE_PATH
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-            # Parse libs to extract library path and library name
-            string(REGEX MATCH "-L[^ ]+" MECAB_LIB_PATH "${MECAB_LIBS}")
-            string(REPLACE "-L" "" MECAB_LIBRARY_DIRS "${MECAB_LIB_PATH}")
-            set(MECAB_LIBRARIES mecab)
-            set(MECAB_FOUND TRUE)
-            message(STATUS "Found Mecab via mecab-config")
-            message(STATUS "  MECAB_INCLUDE_PATH: ${MECAB_INCLUDE_PATH}")
-            message(STATUS "  MECAB_LIBRARY_DIRS: ${MECAB_LIBRARY_DIRS}")
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WEBP REQUIRED libwebp)
+pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale libswresample)
+
+if(WIN32)
+    find_path(MPV_INCLUDE_DIR mpv/client.h PATHS "C:/mpv-dev/include" REQUIRED)
+    find_library(MPV_LIBRARY mpv PATHS "C:/mpv-dev/lib" REQUIRED)
+    set(MPV_LIBRARIES ${MPV_LIBRARY})
+    set(MPV_INCLUDE_DIRS ${MPV_INCLUDE_DIR})
+else()
+    pkg_check_modules(MPV REQUIRED mpv)
+endif()
+
+# Try to find Mecab with pkg-config first, fall back to manual detection
+pkg_check_modules(MECAB mecab)
+if(NOT MECAB_FOUND)
+    # Fallback: use mecab-config on macOS/Linux/Windows
+    find_program(MECAB_CONFIG mecab-config)
+    if(MECAB_CONFIG)
+        execute_process(
+            COMMAND ${MECAB_CONFIG} --libs
+            OUTPUT_VARIABLE MECAB_LIBS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        execute_process(
+            COMMAND ${MECAB_CONFIG} --inc-dir
+            OUTPUT_VARIABLE MECAB_INCLUDE_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        # Parse libs to extract library path and library name
+        string(REGEX MATCH "-L[^ ]+" MECAB_LIB_PATH "${MECAB_LIBS}")
+        string(REPLACE "-L" "" MECAB_LIBRARY_DIRS "${MECAB_LIB_PATH}")
+        set(MECAB_LIBRARIES mecab)
+        set(MECAB_FOUND TRUE)
+        message(STATUS "Found Mecab via mecab-config")
+        message(STATUS "  MECAB_INCLUDE_PATH: ${MECAB_INCLUDE_PATH}")
+        message(STATUS "  MECAB_LIBRARY_DIRS: ${MECAB_LIBRARY_DIRS}")
+    else()
+        if(WIN32)
+            # Try finding headers/libs manually in vcpkg
+            find_path(MECAB_INCLUDE_PATH mecab.h)
+            find_library(MECAB_LIBRARIES libmecab)
+            if(MECAB_INCLUDE_PATH AND MECAB_LIBRARIES)
+                set(MECAB_FOUND TRUE)
+                message(STATUS "Found Mecab manually")
+            else()
+                message(FATAL_ERROR "Mecab not found.")
+            endif()
         else()
             message(FATAL_ERROR "Mecab not found. Please install it: brew install mecab mecab-ipadic OR sudo apt install libmecab-dev")
         endif()
