@@ -78,7 +78,7 @@ if(NOT WIN32)
     pkg_check_modules(MECAB mecab)
 endif()
 
-if(NOT MECAB_FOUND)
+if(NOT WIN32 AND NOT MECAB_FOUND AND NOT mecab_FOUND)
     # Fallback: use mecab-config on macOS/Linux/Windows
     find_program(MECAB_CONFIG mecab-config)
     if(MECAB_CONFIG)
