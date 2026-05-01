@@ -50,32 +50,22 @@ FetchContent_MakeAvailable(cpp-httplib)
 find_package(SQLite3 REQUIRED)
 
 if(WIN32)
-    # Find WebP
-    find_path(WEBP_INCLUDE_DIR webp/decode.h)
-    find_library(WEBP_LIBRARY NAMES webp)
-    set(WEBP_LIBRARIES ${WEBP_LIBRARY})
-    set(WEBP_INCLUDE_DIRS ${WEBP_INCLUDE_DIR})
-
-    # Find FFmpeg components
-    find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
-    find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
-    find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
-    find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
-    find_path(SWRESAMPLE_INCLUDE_DIR libswresample/swresample.h)
-    set(FFMPEG_INCLUDE_DIRS ${AVFORMAT_INCLUDE_DIR} ${AVCODEC_INCLUDE_DIR} ${AVUTIL_INCLUDE_DIR} ${SWSCALE_INCLUDE_DIR} ${SWRESAMPLE_INCLUDE_DIR})
-
-    find_library(AVFORMAT_LIBRARY NAMES avformat)
-    find_library(AVCODEC_LIBRARY NAMES avcodec)
-    find_library(AVUTIL_LIBRARY NAMES avutil)
-    find_library(SWSCALE_LIBRARY NAMES swscale)
-    find_library(SWRESAMPLE_LIBRARY NAMES swresample)
-    set(FFMPEG_LIBRARIES ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY} ${SWRESAMPLE_LIBRARY})
+    # On Windows, we use vcpkg, so we use find_package instead of pkg-config
+    find_package(WebP CONFIG REQUIRED)
+    find_package(FFMPEG REQUIRED)
 
     # Find MPV
     find_path(MPV_INCLUDE_DIR mpv/client.h PATHS "C:/mpv-dev/include" REQUIRED)
     find_library(MPV_LIBRARY mpv libmpv PATHS "C:/mpv-dev" REQUIRED)
+
+    set(WEBP_LIBRARIES WebP::webp WebP::webpdecoder WebP::webpdemux WebP::libwebpmux)
     set(MPV_LIBRARIES ${MPV_LIBRARY})
     set(MPV_INCLUDE_DIRS ${MPV_INCLUDE_DIR})
+
+    find_package(mecab CONFIG REQUIRED)
+    if(mecab_FOUND)
+        set(MECAB_LIBRARIES mecab::mecab)
+    endif()
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(WEBP REQUIRED libwebp)
