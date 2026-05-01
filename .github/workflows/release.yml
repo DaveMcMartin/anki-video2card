@@ -54,7 +54,7 @@ jobs:
           choco install -y pkgconfiglite
           vcpkg install ffmpeg:x64-windows libwebp:x64-windows mecab:x64-windows
           vcpkg integrate install
-          Invoke-WebRequest -Uri "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20231210-git-1563f46.7z/download" -OutFile mpv-dev.7z
+          Invoke-WebRequest -Uri "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-v3-20260419-git-06f4ce7.7z/download" -OutFile mpv-dev.7z
           7z x mpv-dev.7z -oC:/mpv-dev
 
       - name: Configure CMake
@@ -63,7 +63,7 @@ jobs:
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DMPV_INCLUDE_DIR=C:/mpv-dev/include -DMPV_LIBRARY=C:/mpv-dev/lib/mpv.lib
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DMPV_INCLUDE_DIR=C:/mpv-dev/include -DMPV_LIBRARY=C:/mpv-dev/libmpv.dll.a
 
       - name: Build
         run: cmake --build build --config Release

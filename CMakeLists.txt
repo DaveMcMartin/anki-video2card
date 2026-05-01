@@ -55,7 +55,7 @@ pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale li
 
 if(WIN32)
     find_path(MPV_INCLUDE_DIR mpv/client.h PATHS "C:/mpv-dev/include" REQUIRED)
-    find_library(MPV_LIBRARY mpv PATHS "C:/mpv-dev/lib" REQUIRED)
+    find_library(MPV_LIBRARY mpv libmpv PATHS "C:/mpv-dev" REQUIRED)
     set(MPV_LIBRARIES ${MPV_LIBRARY})
     set(MPV_INCLUDE_DIRS ${MPV_INCLUDE_DIR})
 else()
