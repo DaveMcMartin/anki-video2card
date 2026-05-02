@@ -65,8 +65,10 @@ if(WIN32)
     find_package(mecab CONFIG REQUIRED)
     if(mecab_FOUND)
         set(MECAB_LIBRARIES mecab::mecab)
-        find_path(MECAB_INCLUDE_PATH mecab.h)
-        set(MECAB_INCLUDE_DIRS ${MECAB_INCLUDE_PATH})
+        # vcpkg mecab::mecab target provides its own include directories via interface
+        # We set these to empty to prevent "NOTFOUND" errors in target_include_directories
+        set(MECAB_INCLUDE_PATH "")
+        set(MECAB_INCLUDE_DIRS "")
     endif()
 else()
     find_package(PkgConfig REQUIRED)
