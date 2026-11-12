@@ -1,3 +1,5 @@
+> **Discontinued:** This project is discontinued in favor of [ASBPlayer](https://github.com/asbplayer/asbplayer). If you don't like browser/web stuff, a good alternative is [MPV](https://github.com/mpv-player/mpv) with [Mpvacious](https://github.com/Ajatt-Tools/mpvacious). I don't have enough time or motivation to continue this project since there are already alternatives that do the same thing and do it better. Support those instead.
+
 # Anki Video2Card
 
 Anki Video2Card is a modern C++23 cross-platform desktop application designed to streamline the process of creating high-quality Anki cards directly from video files. It uses local morphological analysis and dictionary lookups to automatically extract and annotate Japanese text from your favorite anime, movies, or shows.
